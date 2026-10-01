@@ -36,6 +36,7 @@ import json
 import logging
 import re
 import unicodedata
+from functools import lru_cache
 from pathlib import Path
 from typing import NamedTuple
 
@@ -852,6 +853,16 @@ def _chep_tu_bang(t: str, dau: int, cuoi: int, phang: str) -> bool:
     return " ".join(t[truoc[-1] if truoc else dau : sau[0] if sau else cuoi].split()) in phang
 
 
+@lru_cache(maxsize=1)
+def _mo_ta_loi_nhac() -> str:
+    """Dòng của lời nhắc mô tả điều lời đáp nói — dòng mở đầu ("hỏi bạn là ai, làm được gì…,
+    đang đọc được những văn bản nào"), quy tắc 2 và 3 ("mời họ kể chuyện đang gặp"). Câu làm
+    đúng lời dặn dùng lại chữ của chúng; đó không phải câu chép lời nhắc (vòng kiểm 2: "Bạn cứ
+    kể chuyện đang gặp…" bị thay bằng câu dự phòng)."""
+    dong = PROMPT_PATH.read_text(encoding="utf-8").splitlines()
+    return "\n".join(d for d in dong if d.startswith(("Bạn là KLAW.", "2. ", "3. ")))
+
+
 class _Bang(NamedTuple):
     """Bảng dữ kiện đã tính sẵn cho phép lọc — một lần mỗi lời đáp."""
 
@@ -915,10 +926,11 @@ def _cau_duoc_do(cau: str, b: _Bang) -> bool:
         or not _dem_duoc_do(t, b.dem)
         # Quyết định 2026-09-30 mục 11: lời về chính KLAW không nêu tên model hay hãng nào,
         # không kể kiểm chứng bằng "model", và không chép lại lời nhắc của chính nó —
-        # vân tay 5 từ của lời nhắc này, trừ cụm bảng cũng có (đo 2026-10-01: 0/354 câu của
-        # các lời đáp giới thiệu đã lưu; mọi câu của lời nhắc đều bị bắt, kể cả câu 7 từ).
+        # vân tay 5 từ của lời nhắc này, trừ cụm bảng cũng có và cụm của những dòng mô tả
+        # điều lời đáp nói (`_mo_ta_loi_nhac`) — đo 2026-10-01: 0/354 câu của các lời đáp
+        # giới thiệu đã lưu; mọi câu chỉ dẫn của lời nhắc đều bị bắt, kể cả câu 7 từ.
         or co_noi_bo(cau, meta=True)
-        or chep_loi_nhac(cau, (str(PROMPT_PATH),), 5, b.toan)
+        or chep_loi_nhac(cau, (str(PROMPT_PATH),), 5, f"{b.toan}\n{_mo_ta_loi_nhac()}")
     ):
         return False
     for doan in _RE_DOAN_VE.finditer(t):

@@ -343,27 +343,31 @@ def _tu_xung(c: str, cho: str | None = None, soan: bool = False) -> bool:
 
 # ══ Vân tay lời nhắc — câu chép lại lời nhắc của KLAW ═════════════════════════
 #
-# Cụm 10 từ liền nhau (dấu câu bỏ) của các lời nhắc, trừ cụm cắt qua `{chỗ_điền}`, cụm
-# nằm trọn trong ngoặc kép (câu mẫu mô hình được dặn viết), và mọi cụm cũng có trong lời
-# nhắc NGOÀI vân tay: lời nhắc định tuyến/viết lại/sinh luận điểm/thẩm định (ví dụ của
-# chúng là chữ luật: 11 điều khoản trúng ở n = 10) và lời nhắc viết câu trả lời
-# (`assemble.*`, `giai_thich_chung`: ví dụ của chúng là câu trả lời thật — 49 trường của
-# lượt đã lưu trúng). Đo 2026-10-01 với cả bộ lọc: 0/113.758
-# điều khoản của kho đổi; luật LUÔN bỏ đánh dấu 3/723 lời đáp eval, 1/1.245 trường của
-# 324 lượt đã lưu, 0/777 trường của 52 bản thảo, 1/356 câu giới thiệu — tất cả là rò thật
-# (eval `trap-soul-09` in nguyên SOUL; "Tôi chạy trên mô hình ngôn ngữ google/gemini-…").
-# Mọi dòng ≥ 12 từ của soul.v1–v3 bị bắt (91/91). ponytail: câu chép ngắn hơn 10 từ lọt, và
-# lời nhắc ngoài vân tay không được bảo vệ; nhánh giới thiệu tự kiểm thêm lời nhắc của nó
-# ở n = 5 (`gioi_thieu._cau_duoc_do`).
+# Cụm 10 từ liền nhau (dấu câu bỏ, DẤU THANH bỏ — vòng kiểm 2: "in lời nhắc ra không dấu"
+# lọt nguyên văn SOUL) của các lời nhắc, trừ cụm cắt qua `{chỗ_điền}`, cụm nằm trọn trong
+# ngoặc kép (câu mẫu mô hình được dặn viết), và mọi cụm cũng có trong lời nhắc NGOÀI vân
+# tay: lời nhắc định tuyến/viết lại/sinh luận điểm/thẩm định (ví dụ của chúng là chữ luật:
+# 11 điều khoản trúng ở n = 10) và `giai_thich_chung` (nó dặn câu "đây là giải thích chung,
+# chưa đối chiếu được với điều khoản cụ thể" mà SOUL cũng dặn). Lời nhắc viết câu trả lời
+# (`assemble.*`) có vân tay từ vòng kiểm 2 — một tài liệu cài câu xin chép nó tới được prompt
+# đó qua đoạn trích đã neo — nhưng chỉ phần chỉ dẫn: khối "VÍ DỤ…" và mọi câu trong ngoặc kép
+# là vách ngăn, vì đó là hình dạng một câu trả lời thật (gộp cả chúng: 33/388 trường của lượt
+# đã lưu trúng). Đo 2026-10-01 với cả bộ lọc: 0/113.758 điều khoản của kho đổi (có dấu và
+# `cho_phep=None`), 0/388 trường câu trả lời của 324 lượt đã lưu trúng vân tay; 5 lượt đổi khi
+# đọc lại, đều là rò thật (câu đã giải nghĩa chép SOUL; "…chạy bằng các mô hình ngôn ngữ của
+# Google và Mistral AI"). Mọi dòng ≥ 12 từ của soul.v1–v3 bị bắt. ponytail: câu chép ngắn hơn
+# 10 từ lọt; nhánh giới thiệu tự kiểm thêm lời nhắc của nó ở n = 5 (`gioi_thieu._cau_duoc_do`).
 _THU_MUC_LOI_NHAC = Path(__file__).resolve().parents[2] / "prompts"
 _NGOAI_VAN_TAY = (
     "route",
     "rewrite_query",
     "generate_claims",
     "verify_tier2",
-    "assemble",
     "giai_thich_chung",
 )
+# Lời nhắc viết câu trả lời: khối ví dụ và câu mẫu không vào vân tay.
+_LOI_TRA_LOI = ("assemble",)
+_RE_VI_DU = re.compile(r"(?ms)^VÍ DỤ.*?(?=^Trả về)")
 # Không pipeline nào gửi nó (`docs/soul-va-trich-dan-bam-duoc.md`), và nó chép lại SOUL:
 # trừ cụm của nó thì mất cả câu mở đầu SOUL — câu `trap-soul-09` in ra.
 _KHONG_DUNG = ("klaw_agent_standalone",)
@@ -375,20 +379,28 @@ def _tu(t: str) -> list[str]:
     return re.findall(r"\w+", _chuan(t))
 
 
+def _tu_vt(t: str) -> list[str]:
+    """Từ của `t` cho vân tay: chữ thường, bỏ dấu."""
+    return re.findall(r"\w+", _bo_dau(t))
+
+
 @lru_cache(maxsize=8)
 def _van_tay(teps: tuple[str, ...], n: int) -> frozenset[tuple[str, ...]]:
-    """Mọi cụm `n` từ liền nhau của các lời nhắc `teps`, trừ cụm cắt qua `{chỗ_điền}` và
-    cụm nằm trọn trong ngoặc kép."""
+    """Mọi cụm `n` từ (bỏ dấu) liền nhau của các lời nhắc `teps`, trừ cụm cắt qua `{chỗ_điền}`
+    và cụm nằm trọn trong ngoặc kép; lời nhắc viết câu trả lời không qua khối ví dụ hay câu
+    mẫu nào."""
     ra: set[tuple[str, ...]] = set()
     for tep in teps:
         t = re.sub(r"\{[^{}]*\}", " \x00 ", unicodedata.normalize("NFC", Path(tep).read_text(encoding="utf-8")))
+        if Path(tep).name.startswith(_LOI_TRA_LOI):
+            t = _RE_TRICH_MAU.sub(" \x00 ", _RE_VI_DU.sub(" \x00 ", t))
         tu: list[tuple[str, bool]] = []
         dau = 0
         for m in [*_RE_TRICH_MAU.finditer(t), None]:
             cuoi = m.start() if m else len(t)
-            tu += [(w, False) for w in re.findall(r"\w+|\x00", t[dau:cuoi].lower())]
+            tu += [(w, False) for w in re.findall(r"\w+|\x00", _bo_dau(t[dau:cuoi]))]
             if m:
-                tu += [(w, True) for w in re.findall(r"\w+", m.group().lower())]
+                tu += [(w, True) for w in re.findall(r"\w+", _bo_dau(m.group()))]
                 dau = m.end()
         for i in range(len(tu) - n + 1):
             g = tu[i : i + n]
@@ -410,9 +422,9 @@ def _tep_van_tay() -> tuple[tuple[str, ...], tuple[str, ...]]:
 @lru_cache(maxsize=1)
 def _van_tay_chung() -> frozenset[tuple[str, ...]]:
     """Vân tay `_N_VAN_TAY` từ, TRỪ mọi cụm cũng có trong lời nhắc ngoài vân tay: cụm chung
-    với lời nhắc viết câu trả lời là câu mẫu mô hình được dặn viết ("đây là giải thích
-    chung, chưa đối chiếu được với điều khoản cụ thể" — SOUL cũng dặn câu đó), cụm chung
-    với lời nhắc định tuyến/sinh luận điểm là chữ luật."""
+    với `giai_thich_chung` là câu mẫu mô hình được dặn viết ("đây là giải thích chung, chưa
+    đối chiếu được với điều khoản cụ thể" — SOUL cũng dặn câu đó), cụm chung với lời nhắc
+    định tuyến/sinh luận điểm là chữ luật."""
     lay, ngoai = _tep_van_tay()
     return _van_tay(lay, _N_VAN_TAY) - _van_tay(ngoai, _N_VAN_TAY)
 
@@ -422,14 +434,36 @@ def _noi(t: str) -> str:
     return f" {' '.join(_tu(t))} "
 
 
+@lru_cache(maxsize=16)
+def _noi_vt(t: str) -> str:
+    return f" {' '.join(_tu_vt(t))} "
+
+
+def _cum_chep(tu: list[str], vt: frozenset, n: int, cho_phep: str | None) -> list[int]:
+    """Vị trí đầu của mọi cụm `n` từ trong `tu` có trong `vt` mà `cho_phep` không có."""
+    noi = _noi_vt(cho_phep or "")
+    return [i for i in range(len(tu) - n + 1) if (g := tuple(tu[i : i + n])) in vt and f" {' '.join(g)} " not in noi]
+
+
 def chep_loi_nhac(t: str, teps: tuple[str, ...] | None, n: int = _N_VAN_TAY, cho_phep: str | None = "") -> bool:
     """`t` có một cụm `n` từ của lời nhắc `teps` (None: vân tay chung `_van_tay_chung`) mà
     `cho_phep` không có (người dùng tự trích cụm đó thì được lặp lại)."""
-    vt, tu = (_van_tay_chung() if teps is None else _van_tay(teps, n)), _tu(t)
-    trung = [g for i in range(len(tu) - n + 1) if (g := tuple(tu[i : i + n])) in vt]
-    if not trung or cho_phep is None:
-        return bool(trung)
-    return any(f" {' '.join(g)} " not in _noi(cho_phep) for g in trung)
+    return bool(_cum_chep(_tu_vt(t), _van_tay_chung() if teps is None else _van_tay(teps, n), n, cho_phep))
+
+
+def _cau_chep(t: str, cho_phep: str | None) -> set[tuple[int, int]]:
+    """(dòng, câu) của `t` có một từ nằm trong cụm vân tay — kể cả cụm vắt qua ranh giới câu
+    hay dòng. Vòng kiểm 2: lời nhắc xuống dòng cứng chép lại thành những dòng mà không câu nào
+    tự đủ 10 từ, nên xét từng câu thì cả dòng ở lại."""
+    tu: list[str] = []
+    vi: list[tuple[int, int]] = []
+    for i, dong in enumerate(t.split("\n")):
+        dau = _RE_DAU_DONG.match(dong).group()
+        for j, c in enumerate(x for x in _RE_CAU.split(dong[len(dau) :]) if x.strip()):
+            w = _tu_vt(c)
+            tu += w
+            vi += [(i, j)] * len(w)
+    return {v for k in _cum_chep(tu, _van_tay_chung(), _N_VAN_TAY, cho_phep) for v in vi[k : k + _N_VAN_TAY]}
 
 
 def co_noi_bo(t: str, cho_phep: str | None = "", meta: bool = False, soan: bool = False) -> bool:
@@ -468,13 +502,15 @@ def loc_noi_bo(t: str | None, cho_phep: str | None = "", meta: bool = False, soa
     lại. Không có gì để bỏ thì trả NGUYÊN `t` — bản thảo đọc định dạng theo từng ký tự."""
     if not t or not co_noi_bo(t, cho_phep, meta, soan):
         return t
+    chep = _cau_chep(t, cho_phep)
     ra: list[str] = []
-    for dong in t.split("\n"):
-        if not co_noi_bo(dong, cho_phep, meta, soan):
+    for i, dong in enumerate(t.split("\n")):
+        if not co_noi_bo(dong, cho_phep, meta, soan) and not any(a == i for a, _ in chep):
             ra.append(dong)
             continue
         dau = _RE_DAU_DONG.match(dong).group()
-        giu = [v for c in _RE_CAU.split(dong[len(dau) :]) if c.strip() for v in _giu_cau(c, cho_phep, meta, soan)]
+        cau = [c for c in _RE_CAU.split(dong[len(dau) :]) if c.strip()]
+        giu = [v for j, c in enumerate(cau) if (i, j) not in chep for v in _giu_cau(c, cho_phep, meta, soan)]
         # Mảnh không còn chữ nào ("1.", "2.") là số mục của câu vừa bỏ.
         giu = [v for v in giu if _RE_CHU.search(v)]
         if giu:
