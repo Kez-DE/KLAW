@@ -87,6 +87,37 @@ def test_meta_thuong_cung_khong_lo_ten_model_mo_hinh_tu_viet():
     assert st["answer"].startswith("Tôi là KLAW") and _khong_ro(st["answer"])
 
 
+# Live 02 (vòng kiểm 3, 2026-10-01): câu về mô hình của KLAW không nêu tên nào — sai, và trả
+# lời phần nội bộ mà mục 11(b) dành cho câu cố định.
+KHONG_TEN = [
+    "Tôi không sử dụng mô hình ngôn ngữ nào khác ngoài khả năng của mình.",
+    "Tôi không dùng mô hình AI nào cả.",
+    "Tôi được xây dựng trên một mô hình ngôn ngữ lớn.",
+    "Tôi không phải là một mô hình ngôn ngữ.",
+    "Mô hình tôi đang dùng là mô hình riêng của KLAW.",
+]
+
+
+@pytest.mark.parametrize("cau", KHONG_TEN)
+def test_cau_ghep_bo_cau_mo_hinh_khong_ten_ngoai_bang(cau):
+    dau = "Tôi là KLAW, trợ lý AI tra cứu pháp luật Việt Nam."
+    llm = _Dem({"tra_loi": f"{dau} {cau}"})
+    st = assemble({"query": "bạn là ai và bạn dùng model gì", "intent": "gioi_thieu"}, {}, llm, "m")
+    assert st["answer"] == f"{dau}\n\n{CAU_NOI_BO}"
+
+
+def test_cau_ban_chat_cua_bang_ve_mo_hinh_o_lai():
+    """Dòng `ban_chat` do mã viết ("chương trình chạy trên mô hình ngôn ngữ, không phải luật
+    sư…") là câu về mô hình duy nhất lời giới thiệu được nói; câu về việc KLAW làm có chữ
+    "mô hình" cũng ở lại."""
+    bang = gt.bang_du_kien("bạn là gì", None)
+    assert gt.loc_theo_bang(bang["ban_chat"], bang) == bang["ban_chat"]
+    st = assemble({"query": "bạn là gì", "intent": "gioi_thieu"}, {}, _Dem({"tra_loi": bang["ban_chat"]}), "m")
+    assert st["answer"].startswith(bang["ban_chat"])
+    viec = "Tôi tra cứu được quy định về mô hình tổ chức công đoàn theo tình huống của bạn."
+    assert gt.loc_theo_bang(viec, bang) == viec
+
+
 def test_bang_du_kien_khong_co_ten_model_va_kiem_chung_noi_hai_tang():
     bang = gt.bang_du_kien("bạn là ai", None)
     assert "model" not in bang

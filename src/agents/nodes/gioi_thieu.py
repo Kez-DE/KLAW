@@ -709,6 +709,17 @@ _RE_PHU_DINH = re.compile(r"\b(?:không|chưa|chẳng)\b")
 _RE_KHUYEN = re.compile(r"\b(?:bạn|anh|chị)\s+(?:nên|cần)\b|\bhãy\b|\bnên\b")
 _RE_TOI_LAM = re.compile(r"\bđể\s+tôi\b|\btôi\s+(?:sẽ|có\s+thể)\b")
 _RE_RO_RI = re.compile(r"https?:|www\.|\bsk-|api[\s_]?key")
+# Lời KLAW về mô hình của chính nó mà không nêu tên (vòng kiểm 3, live 02: "Tôi không sử dụng
+# mô hình ngôn ngữ nào khác ngoài khả năng của mình." — sai, và trả lời phần nội bộ mục 11(b)
+# dành cho câu cố định). Chỉ câu chép đúng bảng ở lại: dòng `ban_chat` "Tôi là một chương
+# trình chạy trên mô hình ngôn ngữ, không phải luật sư…". Không dấu phẩy trong khung: "Tôi là
+# KLAW, giúp bạn tìm hiểu mô hình tổ chức công đoàn" nói việc KLAW làm. Lời giới thiệu xưng "tôi"
+# (lời nhắc, quy tắc 5).
+_RE_MO_HINH_CUA_TOI = re.compile(
+    r"\b(?:tôi|klaw)\b[^.!?;:,\n]{0,30}?\b(?:là|phải|dùng|sử\s+dụng|xài|chạy|dựa|hoạt\s+động|xây\s+dựng"
+    r"|phát\s+triển|huấn\s+luyện|tạo|vận\s+hành|gọi)\b[^.!?;:,\n]{0,40}?\bmô\s+hình\b"
+    r"|\bmô\s+hình\b[^.!?;:,\n]{0,30}?\b(?:tôi|klaw)\s+(?:\S+\s+){0,2}?(?:dùng|sử\s+dụng|xài|chạy)\b"
+)
 # Việc và vai KLAW có thể tự nhận, MỖI CỤM MỘT BIỂU THỨC: một câu khẳng định (không
 # phủ định) mang cụm nào thì chính cụm đó phải có trong các dòng việc làm được của
 # bảng — "lưu trữ" không còn được "nhớ" đỡ (review 2026-09-30); câu phủ định chỉ
@@ -930,6 +941,7 @@ def _cau_duoc_do(cau: str, b: _Bang) -> bool:
         # điều lời đáp nói (`_mo_ta_loi_nhac`) — đo 2026-10-01: 0/354 câu của các lời đáp
         # giới thiệu đã lưu; mọi câu chỉ dẫn của lời nhắc đều bị bắt, kể cả câu 7 từ.
         or co_noi_bo(cau, meta=True)
+        or any(" ".join(m.group().split()) not in b.phang for m in _RE_MO_HINH_CUA_TOI.finditer(t))
         or chep_loi_nhac(cau, (str(PROMPT_PATH),), 5, f"{b.toan}\n{_mo_ta_loi_nhac()}")
     ):
         return False
