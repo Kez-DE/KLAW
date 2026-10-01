@@ -109,15 +109,21 @@ def _ten_cau_hinh() -> tuple[str, ...]:
     sang một hãng danh sách tĩnh không có thì tên đó vẫn bị chặn. Không tách theo "-":
     "meta-llama/…" sẽ chặn chữ "meta" (và "metadata"), "openai/text-embedding-…" chặn "text"."""
     s = get_settings()
-    ra: set[str] = set()
-    for ma in (
-        s.openrouter_model_name,
-        s.openrouter_generate_model_name,
-        s.openrouter_judge_model_name,
-        s.openrouter_embedding_model_name,
-        s.openrouter_rerank_model_name,
-    ):
-        ra |= {x.lower() for x in (ma, *ma.split("/")) if len(x) >= 4}
+    return _tach_ten(
+        (
+            s.openrouter_model_name,
+            s.openrouter_generate_model_name,
+            s.openrouter_judge_model_name,
+            s.openrouter_embedding_model_name,
+            s.openrouter_rerank_model_name,
+        )
+    )
+
+
+@lru_cache(maxsize=4)
+def _tach_ten(mas: tuple[str, ...]) -> tuple[str, ...]:
+    # Cache: `_ten` chạy cho từng dòng, câu, vế và điều khoản.
+    ra = {x.lower() for ma in mas for x in (ma, *ma.split("/")) if len(x) >= 4}
     return tuple(sorted(ra, key=len, reverse=True))
 
 
