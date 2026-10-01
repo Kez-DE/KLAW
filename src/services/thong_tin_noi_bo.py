@@ -70,9 +70,16 @@ _RE_KHOA = re.compile(r"(?<![A-Za-z0-9])sk-(?:or-v1-|proj-|ant-)[A-Za-z0-9_-]{8,
 _RE_LOI_NHAC = re.compile(r"system\s+prompt|prompt\s+hệ\s+thống|lời\s+nhắc\s+hệ\s+thống|chỉ\s+dẫn\s+hệ\s+thống")
 _RE_LOI_NHAC_CUA_TOI = re.compile(
     # Không "chỉ dẫn của mình" trần: Luật Thương mại có "thực hiện đúng chỉ dẫn của mình".
-    r"(?:system\s+prompt|prompt(?:\s+hệ\s+thống)?|(?:lời\s+nhắc|chỉ\s+dẫn|hướng\s+dẫn)\s+hệ\s+thống)"
-    r"\s+(?:của\s+)?(?:tôi|mình|klaw)\b"
-    r"|\bmy\s+(?:system\s+)?(?:prompt|instructions)\b|chỉ\s+dẫn\s+(?:mà\s+)?tôi\s+(?:được\s+giao|nhận)"
+    r"(?:system\s+prompt|prompt\s+hệ\s+thống|(?:lời\s+nhắc|chỉ\s+dẫn|hướng\s+dẫn)\s+hệ\s+thống)"
+    r"\s+(?:của\s+)?(?:tôi|mình|klaw)\b|\bmy\s+system\s+(?:prompt|instructions)\b"
+)
+# "prompt của tôi", "my instructions", "chỉ dẫn tôi được giao" là chữ thường trong lời người
+# dùng ("Bức tranh được tạo ra từ prompt của tôi", "chỉ dẫn tôi nhận được từ trưởng phòng"),
+# nên — như `_RE_LOI_NHAC` — được lặp lại khi người hỏi đưa vào, và không xét khi đọc lại chữ
+# đã lưu (`cho_phep=None`). Câu chép lời nhắc thật bị vân tay bắt.
+_RE_LOI_NHAC_TOI = re.compile(
+    r"\bprompt\s+(?:của\s+)?(?:tôi|mình)\b|\bmy\s+(?:prompt|instructions)\b"
+    r"|chỉ\s+dẫn\s+(?:mà\s+)?tôi\s+(?:được\s+giao|nhận)"
 )
 # Lời đáp về chính KLAW (`gioi_thieu`, `hoi_ve_kho`): bảng dữ kiện cũ kể "model khác
 # họ đọc lại", "ba model ở ba vai" — mục 11(c) cấm, và bảng hiện tại không có chữ nào ở đây.
@@ -138,42 +145,72 @@ def _ten_ngoai(t: str, cho_phep: str | None) -> list[str]:
     return ra
 
 
-# ══ Tự xưng — LUÔN bỏ, dù người hỏi gõ đúng tên ═══════════════════════════════
+# ══ Tự xưng và tác giả ════════════════════════════════════════════════════════
 #
 # Một tên hãng mà `cho_phep` cấp phép ("Công ty TNHH Google Việt Nam" trong hợp đồng,
-# "bạn có phải Gemini không") vẫn không được đứng trong câu KLAW nói nó LÀ, CHẠY TRÊN,
-# DÙNG, hay ĐƯỢC SOẠN BỞI mô hình/hãng đó. Xét theo khung chữ quanh tên: `_TRUOC` khớp
-# đuôi phần đứng trước tên, `_SAU` khớp đầu phần đứng sau. Tên đứng sau "Công ty", "TNHH"
-# là một pháp nhân — bên hợp đồng, không bao giờ là mô hình.
-# ponytail: danh sách khung đóng. "tôi" trong một lá đơn là người dùng: "Tôi dùng Google
-# Drive để lưu…" trong đơn họ soạn cũng bị bỏ — chấp nhận, hiếm hơn nhiều so với câu tự xưng.
+# "bạn có phải Gemini không") vẫn không được đứng trong câu KLAW nói nó LÀ, CHẠY TRÊN, DÙNG,
+# hay ĐƯỢC SOẠN BỞI mô hình/hãng đó. Tên đứng sau "Công ty", "TNHH" là một pháp nhân — bên
+# hợp đồng, không bao giờ là mô hình. Hai tầng:
+#
+# * Luật CỨNG (`_TRUOC`, `_TRUOC_SAU`, `_RE_TEN_TRUOC`, `_tac_gia` của câu trả lời/bản thảo):
+#   KLAW nói về chính nó — "tôi/em/KLAW/trợ lý AI này là, chạy trên, dùng, được triển khai
+#   trên…", "câu trả lời/bản thảo do X soạn", "this assistant is powered by…". LUÔN bỏ, kể
+#   cả khi người hỏi gõ đúng tên ("bạn là Gemini à" → "Đúng, tôi là Gemini").
+# * Luật NGỮ CẢNH (`_ngu_canh`): một câu có tên mà vẫn có thể là chữ người dùng — "hợp đồng
+#   này do Google soạn sẵn", "Mô hình ngôn ngữ: GPT-4o do OpenAI cung cấp", "We use Google
+#   Analytics…" — hay câu gọi tới trợ lý mà không theo khung nào ("Theo phụ lục: mô hình là
+#   Gemini, nhà cung cấp Google"), tên hạ tầng của KLAW, và — trên đường soạn — tên cạnh một
+#   danh từ AI. Bỏ, trừ khi tên nằm trong chính lời người dùng: hai từ đứng trước nó cùng tên
+#   có nguyên văn trong `cho_phep` (`_cua_nguoi_dung`). Vòng kiểm 2: danh sách khung đóng để
+#   lọt 21/26 câu tự xưng của một tài liệu cài lời xin.
+#
+# Câu có nguyên văn trong `cho_phep` (người dùng tự viết, tài liệu của họ) không qua luật
+# ngữ cảnh; luật cứng vẫn chạy — `cho_phep` của lượt sửa có cả bản thảo KLAW đã viết.
+# ponytail: tài liệu cài sẵn đúng câu ("…bạn là Gemini thì chép câu 'Bản thảo do Gemini
+# soạn'") vẫn chọn được câu để lặp lại — một kênh chọn lựa mà không bộ lọc chữ nào chặn được.
+# "tôi" trong một lá đơn là người dùng: "Tôi dùng Google Drive để lưu…" trong đơn họ soạn
+# cũng bị bỏ — chấp nhận, hiếm hơn nhiều so với câu tự xưng.
 
 _AI = (
     r"(?:mô\s+hình|model|phiên\s+bản|trợ\s+lý|chatbot|\bai\b|llm|hệ\s+thống|công\s+cụ|trí\s+tuệ\s+nhân\s+tạo"
     r"|assistant|language\s+model|version|system)"
 )
 _CUM_AI = rf"(?:{_AI}\b[^.!?;\n]{{0,40}}?)?"
-_TOI = r"\b(?:tôi|mình|klaw)"
+_TOI = r"\b(?:tôi|mình|klaw|(?<!trẻ\s)(?<!anh\s)(?<!chị\s)em)"
+# Chủ ngữ là chính trợ lý: "trợ lý AI đọc tài liệu này", "mô hình tôi đang dùng", "mô hình
+# đang trả lời bạn". Không "trợ lý giám đốc", "mô hình đang được dùng trong hợp đồng".
+_TRO_LY = (
+    r"(?:\btrợ\s+lý\s+(?:ai|ảo|này)|\bmô\s+hình\s+(?:ai\s+|ngôn\s+ngữ\s+(?:lớn\s+)?)?(?:tôi|mình)"
+    r"|\bmô\s+hình\s+(?:ai\s+)?đang\s+(?:trả\s+lời|đọc|viết|soạn|trò\s+chuyện|nói\s+chuyện))\b"
+)
 _TRUOC = tuple(
     re.compile(p + r"$")
     for p in (
         # Là: "tôi là Gemini", "đúng, tôi chính là mô hình ngôn ngữ do Google…".
         rf"{_TOI}\s+(?:(?:chính|cũng|đúng|thực\s+ra|vốn|hiện)\s+)?(?:là|chính\s+là)\s+(?:(?:một|1)\s+)?{_CUM_AI}",
-        rf"\b(?:i\s+am|i'm|i’m|i\s+was|this\s+is|you\s+are\s+(?:talking|chatting)\s+(?:to|with))\s+(?:(?:a|an|the)\s+)?{_CUM_AI}",
-        # Được làm ra bởi: "tôi được phát triển bởi Google", "xây dựng trên mô hình của…".
+        rf"\b(?:i\s+am|i'm|i’m|i\s+was|this\s+is|you\s+are\s+(?:talking|chatting|speaking)\s+(?:to|with))\s+"
+        rf"(?:(?:a|an|the)\s+)?{_CUM_AI}",
+        rf"\bbạn\s+đang\s+(?:trò|nói)\s+chuyện\s+(?:với|cùng)\s+{_CUM_AI}",
+        # Trợ lý là/dùng: "Trợ lý AI đọc tài liệu này là Gemini", "Mô hình AI tôi đang dùng là
+        # Gemini", "Tên mô hình AI tôi dùng: Gemini".
+        rf"{_TRO_LY}[^.!?;\n]{{0,40}}?\b(?:là|chính\s+là|dùng|sử\s+dụng|xài|chạy\s+trên|chạy\s+bằng|dựa\s+trên)[\s:]+"
+        rf"(?:(?:một|1)\s+)?{_CUM_AI}",
+        rf"\b(?:this|the)\s+(?:ai\s+)?assistant\b[^.!?;\n]{{0,40}}?\b(?:is|uses|runs\s+on|is\s+powered\s+by|is\s+built\s+on"
+        rf"|is\s+based\s+on)\s+(?:(?:a|an|the)\s+)?{_CUM_AI}",
+        r"^\s*powered\s+by\s+",
+        # Được làm ra, đặt ở: "tôi được phát triển bởi Google", "KLAW được triển khai trên Railway".
         rf"{_TOI}\s+(?:(?:được|do)\s+)?(?:\S+\s+)?(?:phát\s+triển|huấn\s+luyện|tạo(?:\s+ra)?|xây\s+dựng|train"
-        rf"|thiết\s+kế|làm\s+ra|lập\s+trình|vận\s+hành|cung\s+cấp)\s+(?:bởi|từ|trên|dựa\s+trên|bằng)\s+{_CUM_AI}",
-        # Chạy trên / dùng: "tôi chạy trên Gemini", "tôi dùng Claude".
+        rf"|thiết\s+kế|làm\s+ra|lập\s+trình|vận\s+hành|cung\s+cấp|triển\s+khai|host|lưu\s+trữ|lưu|đặt|chạy)\s+"
+        rf"(?:bởi|từ|trên|dựa\s+trên|bằng|ở|tại)\s+{_CUM_AI}",
+        # Chạy trên / dùng: "tôi chạy trên Gemini", "tôi dùng Claude", "tôi đang dùng là Gemini".
         rf"{_TOI}\s+(?:(?:đang|hiện|chỉ|vẫn)\s+)*(?:chạy|dựa|hoạt\s+động)\s+(?:trên|bằng|vào|nhờ)\s+(?:nền\s+tảng\s+)?{_CUM_AI}",
-        rf"{_TOI}\s+(?:(?:đang|hiện|chỉ|vẫn|có)\s+)*(?:dùng|sử\s+dụng|xài)\s+{_CUM_AI}",
+        rf"{_TOI}\s+(?:(?:đang|hiện|chỉ|vẫn|có)\s+)*(?:dùng|sử\s+dụng|xài)\s+(?:(?:là|chính\s+là)\s+)?{_CUM_AI}",
         # Việc của KLAW làm bằng mô hình: "tôi đọc tài liệu bằng Gemini qua OpenRouter".
         rf"{_TOI}\s+(?:\S+\s+){{0,2}}?(?:đọc|viết|soạn|trả\s+lời|xử\s+lý|phân\s+tích|tạo|dịch|tóm\s+tắt|kiểm\s+chứng"
         rf"|thẩm\s+định|chấm)\b[^.!?;\n]{{0,40}}?\b(?:bằng|qua|nhờ)\s+{_CUM_AI}",
-        rf"\b(?:i|we|klaw)\s+(?:am\s+|was\s+|'m\s+|’m\s+|is\s+)?(?:\S+\s+){{0,2}}?(?:built|made|powered|trained|developed"
+        rf"\b(?:i|klaw)\s+(?:am\s+|was\s+|'m\s+|’m\s+|is\s+)?(?:\S+\s+){{0,2}}?(?:built|made|powered|trained|developed"
         rf"|created|run|running|served|hosted|based|deployed|use|uses|using|rely|relies)\s+"
         rf"(?:(?:on|by|with|through|via|using|upon)\s+)?{_CUM_AI}",
-        # Nhãn: "Mô hình AI soạn thảo: Gemini 2.5 Flash Lite".
-        r"(?:mô\s+hình|model|\bai\b|llm|công\s+cụ\s+ai|trợ\s+lý\s+ai)[^:\n]{0,30}:\s*",
     )
 )
 # Khung hai đầu: phần trước như dưới, VÀ phần sau tên khớp `sau`.
@@ -186,35 +223,90 @@ _TRUOC_SAU = (
             r"|vận\s+hành|cung\s+cấp)"
         ),
     ),
-)
-# Văn bản này do mô hình soạn: "Điều khoản này do mô hình ngôn ngữ lớn của Google soạn",
-# "Bản thảo do Gemini 2.5 Flash Lite soạn qua OpenRouter". Cần một động từ soạn trong câu
-# ("Hợp đồng ký bởi Google" không phải), và "bằng/qua" chỉ tính khi có danh từ mô hình hay
-# câu nói về chính lời KLAW: "hợp đồng soạn bằng Google Docs vẫn có giá trị" ở lại.
-_RE_DO = re.compile(rf"\b(?:do|bởi|by)\s+{_CUM_AI}$|\b(?:bằng|qua|nhờ|via|using|through)\s+{_AI}\b[^.!?;\n]{{0,40}}?$")
-_RE_BANG = re.compile(r"\b(?:bằng|qua|nhờ|via|using|through)\s+$")
-_RE_LOI_KLAW = re.compile(
-    r"câu\s+trả\s+lời|bản\s+thảo|(?:văn\s+bản|điều\s+khoản|phần|câu|nội\s+dung)\s+này"
-    r"|this\s+(?:answer|response|draft|text)"
-)
-_RE_SOAN = re.compile(
-    r"\b(?:soạn|viết|tạo|sinh|dịch|tóm\s+tắt|rà\s+soát|chấm|thẩm\s+định|kiểm\s+chứng"
-    r"|drafted|written|generated|created|reviewed|produced)"
+    # "tôi gọi Gemini qua OpenRouter".
+    (
+        re.compile(rf"{_TOI}\s+(?:(?:đang|hiện)\s+)?gọi\s+{_CUM_AI}$"),
+        re.compile(r"^\s*(?:\S+\s+){0,3}?(?:qua|thông\s+qua|bằng|via)\b"),
+    ),
 )
 # Tên đứng trước: "Gemini là mô hình tôi dùng", "DeepSeek V3 viết phần này".
 _RE_TEN_TRUOC = re.compile(
     r"^[^.!?;\n]{0,40}?\b(?:là\s+(?:mô\s+hình|model|ai|llm)\s+(?:mà\s+)?(?:tôi|klaw|mình)\b"
     r"|(?:mà\s+)?(?:tôi|klaw)\s+(?:đang\s+)?(?:dùng|chạy|sử\s+dụng|xài)\b"
-    r"|(?:đã\s+)?(?:soạn|viết|tạo|sinh)(?:\s+ra)?\s+(?:văn\s+bản|câu\s+trả\s+lời|bản\s+thảo|điều\s+khoản|hợp\s+đồng"
-    r"|phần|nội\s+dung)\s+này)"
+    r"|(?:đã\s+)?(?:soạn|viết|tạo|sinh)(?:\s+ra)?\s+(?:câu\s+trả\s+lời|bản\s+thảo|phần)\s+này)"
 )
 _RE_PHAP_NHAN = re.compile(
     r"(?:công\s+ty|cty|tnhh|tập\s+đoàn|chi\s+nhánh|văn\s+phòng\s+đại\s+diện|ngân\s+hàng)\s+(?:[^\s.!?;]+\s+){0,3}$"
 )
 
+# Tác giả: một câu nói về một VĂN BẢN, có động từ soạn và tên đứng ở vai người soạn ("do/bởi/
+# bằng X", "mô hình … của X", "X's AI model"). Văn bản là lời KLAW (câu trả lời, bản thảo) thì
+# là luật cứng; văn bản là của người dùng được ("hợp đồng này", "người soạn", "this contract")
+# thì là luật ngữ cảnh — trừ trên đường soạn, nơi mọi văn bản là KLAW viết. Động từ soạn đủ
+# từ: "dịch vụ", "giao dịch", "chấm công", "trí tuệ nhân tạo", "đào tạo", "phát sinh" không
+# phải (vòng kiểm 2: "Dịch vụ quảng cáo do Google cung cấp…" bị xoá khỏi câu trả lời luật).
+_RE_LOI_KLAW = re.compile(r"câu\s+trả\s+lời|bản\s+thảo|\bthis\s+(?:answer|response|draft)\b")
+_RE_VAN_BAN = re.compile(
+    r"(?:văn\s+bản|điều\s+khoản|hợp\s+đồng|phần|câu|nội\s+dung|đơn|tài\s+liệu)\s+này|người\s+soạn"
+    # Chân trang bản thảo cũ: "Văn bản do google/gemini-2.5-flash-lite soạn qua OpenRouter".
+    # Không "nội dung/hợp đồng do ChatGPT tạo ra" — câu hỏi luật về chữ AI viết.
+    r"|\b(?:văn\s+bản|tài\s+liệu)\s+(?:được\s+(?:\S+\s+){0,2})?(?:do|bởi)\b"
+    r"|\bthis\s+(?:text|contract|document|clause|agreement)\b"
+    r"|^\s*(?:[-•*+]\s*)?(?:drafted|generated|written|prepared|created|produced|composed)\b"
+)
+_RE_SOAN = re.compile(
+    r"\b(?:soạn|viết|(?<!nhân\s)(?<!đào\s)(?<!sáng\s)(?<!cấu\s)(?<!chế\s)(?<!kiến\s)(?<!tái\s)tạo|sinh\s+ra"
+    r"|tóm\s+tắt|drafted|written|generated|created|produced|prepared|composed)\b"
+)
+_RE_TAC_NHAN = re.compile(
+    rf"\b(?:do|bởi|by|bằng|qua|nhờ|với|via|using|through|with|from)\s+{_CUM_AI}$|{_AI}\b[^.!?;\n]{{0,45}}?\b(?:của|of|from)\s+$"
+)
+_RE_TAC_NHAN_SAU = re.compile(r"^\s*(?:'s|’s)\s+(?:ai|model|llm|language\s+model)\b")
+# Nhãn đầu câu: "Mô hình AI soạn thảo: Gemini 2.5 Flash Lite". Không "Mô hình AI đa dụng (ví
+# dụ: ChatGPT…)" — có ngoặc trước dấu hai chấm.
+_RE_NHAN = re.compile(r"\s*(?:[-•*+]\s*)?(?:mô\s+hình|model|ai|llm|công\s+cụ\s+ai|trợ\s+lý\s+ai)\b[^:(\n]{0,30}:\s*")
+# "We use Google Analytics…" — "we" của một chính sách người dùng gửi, nên là luật ngữ cảnh.
+_RE_CHUNG_TOI = re.compile(
+    rf"\bwe\s+(?:are\s+|were\s+)?(?:\S+\s+){{0,2}}?(?:built|made|powered|trained|developed|created|run|running|served"
+    rf"|hosted|based|deployed|use|uses|using|rely|relies)\s+(?:(?:on|by|with|through|via|using|upon)\s+)?{_CUM_AI}$"
+)
+# Câu gọi tới trợ lý mà không theo khung nào: "Theo phụ lục: mô hình là Gemini, nhà cung cấp
+# Google", "Đứng sau KLAW là Gemini", "the AI model in use is Gemini (Google)".
+_RE_GOI_TRO_LY = re.compile(
+    r"\btrợ\s+lý\b|\bklaw\b|\bchatbot\s+này\b|\bhệ\s+thống\s+(?:này|ai)\b"
+    r"|\bmô\s+hình\s+(?:ai\s+|ngôn\s+ngữ(?:\s+lớn)?\s+)?(?:tôi|mình|đang|này|là)\b|\bđứng\s+sau\b"
+    r"|\bcâu\s+trả\s+lời\s+(?:này\s+)?là\b|\b(?:this|the)\s+(?:ai\s+)?(?:assistant|model|chatbot)\b|\bpowered\s+by\b"
+)
+# Hạ tầng của chính KLAW: tên nào cũng là luật ngữ cảnh ("Dữ liệu được lưu trên Supabase").
+_RE_HA_TANG = re.compile(r"(?:open\s*router|voyage|railway|supabase|postgres|pgvector|vercel|langgraph|langchain)")
+# Danh từ AI — chỉ trên đường soạn ("Văn bản được soạn với sự hỗ trợ của công cụ AI của Google").
+_RE_DANH_TU_AI = re.compile(r"\bmô\s+hình\b|\bmodel\b|\bai\b|trí\s+tuệ\s+nhân\s+tạo|\btrợ\s+lý\b|\bllm\b|\bchatbot\b")
 
-def _tu_xung(c: str) -> bool:
-    """Câu chuẩn hoá `c` có tên hãng/mô hình đứng trong một khung tự xưng hay tác giả."""
+
+def _cau_quanh(c: str, i: int) -> tuple[int, int]:
+    """(đầu, cuối) của câu trong chữ chuẩn hoá `c` chứa vị trí `i`."""
+    dau = max([0] + [m.end() for m in _RE_CAU.finditer(c, 0, i)])
+    cuoi = next((m.start() for m in _RE_CAU.finditer(c, i)), len(c))
+    return dau, cuoi
+
+
+def _cua_nguoi_dung(cau: str, dau: int, cuoi: int, cho: str) -> bool:
+    """Tên ở `cau[dau:cuoi]` nằm trong lời người dùng: hai từ đứng trước nó (đầu câu thì hai
+    từ sau) cùng tên có nguyên văn trong `cho`. Một tài liệu cài "ChatGPT (OpenAI), Gemini
+    (Google)…" không đỡ được "…là Gemini (Google)"."""
+    truoc, ten, sau = _tu(cau[:dau])[-2:], _tu(cau[dau:cuoi]), _tu(cau[cuoi:])
+    cum = truoc + ten + sau[: 2 - len(truoc)]
+    return f" {' '.join(cum)} " in _noi(cho)
+
+
+def _tac_gia(cau: str, truoc: str, sau: str) -> bool:
+    return bool(_RE_SOAN.search(cau) and (_RE_TAC_NHAN.search(truoc) or _RE_TAC_NHAN_SAU.match(sau)))
+
+
+def _tu_xung(c: str, cho: str | None = None, soan: bool = False) -> bool:
+    """Chữ chuẩn hoá `c` có tên hãng/mô hình đứng trong một câu tự xưng hay ghi tác giả.
+    `cho`: `cho_phep` đã chuẩn hoá (None: chữ đã lưu, mọi tên là của người dùng); `soan`:
+    `c` là văn bản KLAW soạn cho người dùng (bản thảo, điều khoản)."""
     for m in _ten(c):
         truoc, sau = c[max(0, m.start() - 120) : m.start()], c[m.end() :]
         if _RE_PHAP_NHAN.search(truoc):
@@ -222,9 +314,29 @@ def _tu_xung(c: str) -> bool:
         if (
             any(r.search(truoc) for r in _TRUOC)
             or any(a.search(truoc) and b.match(sau) for a, b in _TRUOC_SAU)
-            or ((_RE_DO.search(truoc) or (_RE_BANG.search(truoc) and _RE_LOI_KLAW.search(c))) and _RE_SOAN.search(c))
             or _RE_TEN_TRUOC.match(sau)
         ):
+            return True
+        d, e = _cau_quanh(c, m.start())
+        cau = c[d:e]
+        tac_gia = _tac_gia(cau, truoc, sau)
+        if tac_gia and (_RE_LOI_KLAW.search(cau) or (soan and _RE_VAN_BAN.search(cau))):
+            return True
+        # Sau luật tác giả: bản thảo đang mở nằm trong `cho_phep` mà là chữ KLAW viết.
+        if cho is not None and cau.strip(" .;:!?…") in cho:
+            continue
+        ngu_canh = (
+            (tac_gia and _RE_VAN_BAN.search(cau))
+            or _RE_NHAN.fullmatch(c[d : m.start()])
+            or (cho is not None and _RE_CHUNG_TOI.search(truoc))
+            or (
+                cho is not None
+                and (
+                    _RE_GOI_TRO_LY.search(cau) or _RE_HA_TANG.match(m.group(0)) or (soan and _RE_DANH_TU_AI.search(cau))
+                )
+            )
+        )
+        if ngu_canh and not (cho and _cua_nguoi_dung(cau, m.start() - d, m.end() - d, cho)):
             return True
     return False
 
@@ -320,44 +432,49 @@ def chep_loi_nhac(t: str, teps: tuple[str, ...] | None, n: int = _N_VAN_TAY, cho
     return any(f" {' '.join(g)} " not in _noi(cho_phep) for g in trung)
 
 
-def co_noi_bo(t: str, cho_phep: str | None = "", meta: bool = False) -> bool:
+def co_noi_bo(t: str, cho_phep: str | None = "", meta: bool = False, soan: bool = False) -> bool:
     """`t` nêu thông tin nội bộ mà `cho_phep` (chữ người hỏi đưa vào; None = mọi tên là
-    của người dùng) không cấp phép. `meta`: lời đáp về chính KLAW, thêm `_RE_META`."""
+    của người dùng) không cấp phép. `meta`: lời đáp về chính KLAW, thêm `_RE_META`. `soan`:
+    `t` là văn bản KLAW soạn cho người dùng (`_tu_xung`)."""
     if not t:
         return False
     c = _chuan(t)
+    cho = None if cho_phep is None else _chuan(cho_phep)
     return bool(
         _RE_KHOA.search(t)
         or _RE_LOI_NHAC_CUA_TOI.search(c)
-        or (cho_phep is not None and (m := _RE_LOI_NHAC.search(c)) and m.group(0) not in _chuan(cho_phep))
+        or (
+            cho is not None
+            and any(m.group(0) not in cho for r in (_RE_LOI_NHAC, _RE_LOI_NHAC_TOI) if (m := r.search(c)))
+        )
         or (meta and _RE_META.search(c))
         or _ten_ngoai(t, cho_phep)
-        or _tu_xung(c)
+        or _tu_xung(c, cho, soan)
         or chep_loi_nhac(t, None, cho_phep=cho_phep)
     )
 
 
-def _giu_cau(c: str, cho_phep: str | None, meta: bool) -> list[str]:
+def _giu_cau(c: str, cho_phep: str | None, meta: bool, soan: bool) -> list[str]:
     """Phần giữ lại được của câu `c`: cả câu, các vế sạch sau dấu ";", hay không gì."""
-    if not co_noi_bo(c, cho_phep, meta):
+    if not co_noi_bo(c, cho_phep, meta, soan):
         return [c]
     if chep_loi_nhac(c, None, cho_phep=cho_phep):
         return []
-    return [v for v in _RE_VE.split(c) if v.strip() and not co_noi_bo(v, cho_phep, meta)]
+    return [v for v in _RE_VE.split(c) if v.strip() and not co_noi_bo(v, cho_phep, meta, soan)]
 
 
-def loc_noi_bo(t: str | None, cho_phep: str | None = "", meta: bool = False) -> str | None:
+def loc_noi_bo(t: str | None, cho_phep: str | None = "", meta: bool = False, soan: bool = False) -> str | None:
     """Bỏ mọi câu của `t` nêu thông tin nội bộ, giữ dòng, gạch đầu dòng và mọi câu còn
     lại. Không có gì để bỏ thì trả NGUYÊN `t` — bản thảo đọc định dạng theo từng ký tự."""
-    if not t or not co_noi_bo(t, cho_phep, meta):
+    if not t or not co_noi_bo(t, cho_phep, meta, soan):
         return t
     ra: list[str] = []
     for dong in t.split("\n"):
-        if not co_noi_bo(dong, cho_phep, meta):
+        if not co_noi_bo(dong, cho_phep, meta, soan):
             ra.append(dong)
             continue
         dau = _RE_DAU_DONG.match(dong).group()
-        giu = [v for c in _RE_CAU.split(dong[len(dau) :]) if c.strip() for v in _giu_cau(c, cho_phep, meta)]
+        giu = [v for c in _RE_CAU.split(dong[len(dau) :]) if c.strip() for v in _giu_cau(c, cho_phep, meta, soan)]
         # Mảnh không còn chữ nào ("1.", "2.") là số mục của câu vừa bỏ.
         giu = [v for v in giu if _RE_CHU.search(v)]
         if giu:
@@ -367,16 +484,16 @@ def loc_noi_bo(t: str | None, cho_phep: str | None = "", meta: bool = False) -> 
     return re.sub(r"\n{3,}", "\n\n", "\n".join(ra)).strip("\n")
 
 
-def loc_cay(x, cho_phep: str | None = "", meta: bool = False, giu: frozenset[str] = frozenset()):
+def loc_cay(x, cho_phep: str | None = "", meta: bool = False, giu: frozenset[str] = frozenset(), soan: bool = False):
     """`loc_noi_bo` trên mọi chuỗi của một cây JSON (đầu ra có cấu trúc của mô hình),
     giữ nguyên hình dạng và khoá. Khoá trong `giu` (nguyên văn tài liệu, dữ kiện người
     dùng khai) đi qua nguyên vẹn."""
     if isinstance(x, str):
-        return loc_noi_bo(x, cho_phep, meta)
+        return loc_noi_bo(x, cho_phep, meta, soan)
     if isinstance(x, list):
-        return [loc_cay(v, cho_phep, meta, giu) for v in x]
+        return [loc_cay(v, cho_phep, meta, giu, soan) for v in x]
     if isinstance(x, dict):
-        return {k: v if k in giu else loc_cay(v, cho_phep, meta, giu) for k, v in x.items()}
+        return {k: v if k in giu else loc_cay(v, cho_phep, meta, giu, soan) for k, v in x.items()}
     return x
 
 

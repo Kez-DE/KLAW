@@ -60,6 +60,8 @@ from src.services.thong_tin_noi_bo import CAU_NOI_BO_MOI, loc_cay
 
 logger = logging.getLogger(__name__)
 PROMPT_PATH = Path("prompts/hieu_tai_lieu.v1.md")
+# Trường nguyên văn tài liệu trong đầu ra của mô hình — phép neo kiểm chúng.
+_NGUYEN_VAN = frozenset({"trich", "trich_a", "trich_b"})
 # Tài liệu có khuôn gốc (kế hoạch `khuon-goc-dien-tai-cho.md`, P4b): prompt v2 thay
 # quy tắc 15 (dựng lại cả văn bản) bằng phép sửa trên chính tệp. v1 giữ nguyên cho
 # đường HTML — tài liệu tải lên trước khuôn gốc, và lượt soạn không có tài liệu.
@@ -3544,7 +3546,11 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
     # liệu của họ không đưa vào không ra khỏi đây — lời đáp, quan sát, suy luận, bản thảo
     # (kể cả khi tài liệu cài lời xin "ghi tên model vào hợp đồng"). TRƯỚC mọi phép neo,
     # làm sạch và lưu; một tên CÓ trong tài liệu ("Công ty TNHH Google Việt Nam") ở lại.
-    ra = loc_cay(ra, _nguon_soan(goi, state, [], [], bo_nho_cho_phep))
+    # Câu trích (`trich…`) đi qua nguyên vẹn: nó phải neo vào tài liệu ngay dưới, nên là chữ
+    # của người dùng (vòng kiểm 2: lọc nó làm mất quan sát trích đúng hợp đồng của họ). Bản
+    # thảo là văn bản KLAW soạn (`soan`).
+    nguon_ra = _nguon_soan(goi, state, [], [], bo_nho_cho_phep)
+    ra = {k: loc_cay(v, nguon_ra, giu=_NGUYEN_VAN, soan=k in ("van_ban", "khuon")) for k, v in ra.items()}
     theo_nhan = {t["nhan"]: t for t in goi}
     giu: list[dict] = []
     dem = {f"hieu_tai_lieu_bo_{ly.value}": 0 for ly in LyDoNeo if ly is not LyDoNeo.ok}
@@ -4439,7 +4445,7 @@ def _soan_khuon_mau(
     nguon = _nguon_soan([], state, [], [], bo_nho_cho_phep)
     # Mục 11, cùng lưới đường tài liệu ngay trên: TRƯỚC `kiem_khuon_mau`, nơi số trong
     # "GPT-4o" đã bị thay bằng chỗ trống mà tên hãng thì còn.
-    kq = kiem_khuon_mau(loc_cay(ra, nguon), ng, nguon, bo_nho_cam, ten_dieu_cua(tai_lieu_cu) if sua else [])
+    kq = kiem_khuon_mau(loc_cay(ra, nguon, soan=True), ng, nguon, bo_nho_cam, ten_dieu_cua(tai_lieu_cu) if sua else [])
     if (
         ng.get("ban_hanh")
         and kq["muc_tieu"] == "sua_ban_dang_co"

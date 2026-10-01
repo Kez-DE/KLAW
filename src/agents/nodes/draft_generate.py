@@ -49,7 +49,7 @@ def draft_generate(state: dict, llm, model: str) -> dict:
     # người hỏi không có — một bên tên "Công ty TNHH Google Việt Nam" họ khai thì ở lại.
     nguon = json.dumps(state["facts"], ensure_ascii=False)
     try:
-        clauses = [DraftClause(**loc_cay(c, nguon)) for c in json.loads(raw).get("clauses", [])]
+        clauses = [DraftClause(**loc_cay(c, nguon, soan=True)) for c in json.loads(raw).get("clauses", [])]
         schema_error = False
     except (json.JSONDecodeError, TypeError, ValueError):
         clauses, schema_error = [], True
