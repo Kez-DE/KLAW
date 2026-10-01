@@ -33,6 +33,7 @@ from src.services.effectivity import Effectivity
 from src.services.effectivity import EffectivityVerdict as V
 from src.services.kho import CAU_GIOI_HAN
 from src.services.llm import generate_model
+from src.services.thong_tin_noi_bo import CAU_NOI_BO_MOI
 
 
 def _vb(so, ten, loai="Bộ luật", depth="deep", verdict=V.con_hieu_luc, linh_vuc=None):
@@ -125,9 +126,11 @@ def test_hoi_nguon_chi_tra_nguon_va_gioi_han_lien_quan():
 
 def test_hoi_model_chi_tra_model_va_khong_ro_ri():
     """§7.1.5 — giữ nguyên phép canh rò rỉ của `test_gioi_thieu.py` ở tầng
-    khía cạnh: "model của bạn là gì" không được kéo theo danh tính."""
-    assert khia_canh("model của bạn là gì") == ["model"]
+    khía cạnh: "model của bạn là gì" không được kéo theo danh tính. Quyết định
+    2026-09-30 mục 11: khía cạnh là `noi_bo`, lời đáp là câu cố định."""
+    assert khia_canh("model của bạn là gì") == ["noi_bo"]
     ans = cau_gioi_thieu("model của bạn là gì", KHO)
+    assert ans == CAU_NOI_BO_MOI
     assert "http" not in ans and "sk-" not in ans
     assert "api key" not in ans.lower()
 
@@ -265,7 +268,7 @@ def test_chao_dan_vao_chi_o_luot_dau():
 def test_can_kho_dung_cho_ba_khia_canh_kho():
     """Chỗ gọi dùng `can_kho` để nạp kho ĐÚNG MỘT LẦN (FR-014)."""
     assert can_kho(["bo_luat"]) and can_kho(["linh_vuc"]) and can_kho(["kho"])
-    assert not can_kho(["nang_luc", "nguon", "model", "soan_thao", "danh_tinh"])
+    assert not can_kho(["nang_luc", "nguon", "noi_bo", "soan_thao", "danh_tinh"])
 
 
 def test_assemble_khong_co_model_van_tra_loi_cau_hoi_ghep():

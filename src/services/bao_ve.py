@@ -363,17 +363,18 @@ def kiem_tran_chi_phi() -> None:
         logger.exception("kiem_tran_chi_phi: không đọc được chi phí hôm nay — TỪ CHỐI")
         raise HTTPException(
             status_code=503,
-            detail="Không kiểm được trần chi phí ngày, tạm thời từ chối yêu cầu. Vui lòng thử lại.",
+            detail="KLAW tạm thời chưa nhận yêu cầu mới. Vui lòng thử lại sau ít phút.",
         ) from e
 
     if da_dung >= s.tran_chi_phi_ngay_usd:
         mo_lai = _dau_ngay_utc() + timedelta(days=1)
+        # Quyết định 2026-09-30 mục 11: chi phí là thông tin nội bộ — trần và số đã tiêu chỉ
+        # vào log; người dùng biết KLAW hết lượt hôm nay và khi nào mở lại.
+        logger.warning("kiem_tran_chi_phi: chạm trần ngày %s USD (đã dùng %.5f USD)", s.tran_chi_phi_ngay_usd, da_dung)
         raise HTTPException(
             status_code=429,
             detail=(
-                f"Đã đạt trần chi phí ngày ({s.tran_chi_phi_ngay_usd} USD; "
-                f"đã dùng {da_dung:.5f} USD). Hạn mức mở lại lúc "
-                f"{mo_lai.strftime('%Y-%m-%d %H:%M')} UTC."
+                f"KLAW đã nhận đủ lượt hỏi cho hôm nay. Hạn mức mở lại lúc {mo_lai.strftime('%H:%M %d/%m/%Y')} UTC."
             ),
             headers={"Retry-After": str(int((mo_lai - datetime.now(UTC)).total_seconds()))},
         )

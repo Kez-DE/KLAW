@@ -37,6 +37,7 @@ from src.services import ban_thao, bao_ve, dung_trang
 from src.services.bao_ve import nguoi_dung_bat_buoc
 from src.services.doc_tai_lieu import ChuyenDoiKhongSanSang, KhongDocDuoc
 from src.services.retrieval import _bo_dau
+from src.services.thong_tin_noi_bo import LOI_CHUNG, loc_cay, loc_noi_bo
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -74,13 +75,17 @@ def _ten_loai(loai: str) -> str:
 
 
 def _out(bt: dict) -> BanThaoOut:
+    # Bản thảo lưu TRƯỚC quyết định 2026-09-30 mục 11 có thể mang câu tự xưng ("Văn bản do
+    # google/gemini-2.5-flash-lite soạn"): đọc lại qua các luật LUÔN bỏ của bộ lọc
+    # (`cho_phep=None` — mọi tên ở lại, kể cả bên hợp đồng người dùng gõ tay). Bản lưu sau
+    # bản vá đã lọc lúc ghi; không câu nào bị bỏ thì chữ trả ra y nguyên từng ký tự.
     return BanThaoOut(
         id=bt["id"],
         loai=bt["loai"],
         ten=ban_thao.ten_ban_thao(bt, _ten_loai(bt["loai"])),
         phien_ban=bt["phien_ban"],
-        document=bt["document"],
-        clauses=bt["clauses"],
+        document=loc_noi_bo(bt["document"], None),
+        clauses=loc_cay(bt["clauses"], None),
         audit_report=bt["audit"],
         facts=bt["facts"],
         # Chỉ `sua_o_dien` mang khoá này (ô vừa đổi); mọi nơi gọi khác giữ `[]`.
@@ -149,9 +154,10 @@ async def phien_ban_chi_tiet(
         phien_ban=snap["phien_ban"],
         luc=snap.get("luc"),
         doi=snap.get("doi") or [],
-        document=snap["document"],
+        # Cùng lọc đọc lại như `_out`.
+        document=loc_noi_bo(snap["document"], None),
         facts=snap["facts"],
-        clauses=snap["clauses"],
+        clauses=loc_cay(snap["clauses"], None),
         audit_report=snap["audit"],
         can_cu_van_ban=ban_thao.can_cu_tu_document(snap["document"]),
         khuon=snap.get("khuon"),
@@ -248,9 +254,10 @@ async def dung(id: str, body: DungLaiRequest, nguoi: dict = Depends(nguoi_dung_b
     try:
         bt = await ban_thao.dung_lai(nguoi["sub"], id, body.facts)
     except KhongSoanDuocError as e:
-        raise HTTPException(status_code=422, detail=str(e)) from e
+        raise HTTPException(status_code=422, detail=loc_noi_bo(str(e)) or LOI_CHUNG) from e
     except ValueError as e:
-        raise HTTPException(status_code=429, detail=str(e)) from e
+        # `llm.py` viết tên model vào thông điệp của ValueError (mục 11).
+        raise HTTPException(status_code=429, detail=loc_noi_bo(str(e)) or LOI_CHUNG) from e
     if bt is None:
         raise HTTPException(status_code=404, detail=ban_thao.LOI_KHONG_THAY)
     return BanThaoOut(

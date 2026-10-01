@@ -58,6 +58,7 @@ from src.services.db import get_engine
 from src.services.effectivity import dieu_khoan_bai_bo
 from src.services.hien_thi import bai_bo_tren_trang, chan_neu_an, hien_thi_luc
 from src.services.rules import Rule, enum_facts, mo_ta_facts, ten_tham_so
+from src.services.thong_tin_noi_bo import LOI_CHUNG, loc_ket, loc_noi_bo
 
 # _tong_hop_traces re-exported here: test_tra_cuu.py imports it from routes, not services.traces.
 from src.services.traces import _ghi_traces, _tong_hop_traces, dau_van_ban  # noqa: F401
@@ -365,7 +366,8 @@ BUOC_TRA_CUU: tuple[tuple[str, str], ...] = (
     ("expand", "Mở rộng dẫn chiếu"),
     ("generate", "Sinh luận điểm"),
     ("tier1", "Kiểm chứng tầng 1 — đối chiếu nguyên văn"),
-    ("tier2", "Kiểm chứng tầng 2 — mô hình thẩm định"),
+    # Quyết định 2026-09-30 mục 11: không nói ai chấm tầng 2.
+    ("tier2", "Kiểm chứng tầng 2 — đọc lại điều khoản"),
     ("assemble", "Dựng câu trả lời"),
 )
 
@@ -461,7 +463,8 @@ async def _xem_ban_thao(
     if not (user_sub and hoi_thoai_id and moi_nhat_la_khuon) or req.tai_lieu_ids or not xin_xem_ban_thao(req.query):
         return None
     bt = await run_in_threadpool(ban_thao.moi_nhat_tren_khuon, user_sub, hoi_thoai_id=hoi_thoai_id)
-    return xem_ban_thao_khuon(bt) if bt and bt.get("khuon") else None
+    # Bản lưu, không qua `assemble`: cùng lưới đọc lại với drawer (quyết định 2026-09-30 mục 11).
+    return loc_ket(xem_ban_thao_khuon(bt), None) if bt and bt.get("khuon") else None
 
 
 async def chay_tra_cuu(
@@ -566,6 +569,10 @@ async def chay_tra_cuu(
         )
         tu_cache = payload is not None
         if tu_cache:
+            # Dòng cache không đi qua `assemble`, có thể lưu TRƯỚC quyết định 2026-09-30
+            # mục 11: cùng bộ lọc lời đáp. Cache chỉ đọc khi lượt không có lịch sử, hồ sơ
+            # hay tài liệu, nên câu hỏi là toàn bộ chữ người hỏi đưa vào.
+            payload = loc_ket(payload, req.query)
             st = _st_tu_cache(payload)
             if phat is not None:
                 # Giả vờ chạy chín node cho một lượt 3ms là dựng một thanh tiến
@@ -774,7 +781,8 @@ async def tra_cuu(
 @router.get("/status")
 async def agent_status():
     """Kiểm tra trạng thái agent."""
-    return {"status": "ready", "agent": "LangGraph Agent v1.0"}
+    # Không nêu framework hay hạ tầng (quyết định 2026-09-30 mục 11).
+    return {"status": "ready", "agent": "KLAW"}
 
 
 # ══ GET /van-ban/{doc_id} (Task 7, step 2) — ba dạng LAZY ═══════════════════
@@ -1208,7 +1216,7 @@ async def soan_thao(
     except KhongSoanDuocError as e:
         # Dừng trước lượt LLM (căn cứ gốc thuộc văn bản ẩn): lời thường, 4xx để
         # giao diện hiện `detail`; không chi phí nào để ghi.
-        raise HTTPException(status_code=422, detail=str(e)) from e
+        raise HTTPException(status_code=422, detail=loc_noi_bo(str(e)) or LOI_CHUNG) from e
     except (httpx.HTTPStatusError, httpx.TransportError, OperationalError) as e:
         # Cùng phân loại lỗi hạ tầng nhất thời như tra_cuu() — xem docstring ở đó.
         loi = type(e).__name__

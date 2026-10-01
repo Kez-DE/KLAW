@@ -86,6 +86,7 @@ from src.services.kho import hien_van_ban, moi_so_hieu_trong
 from src.services.khuon_mau import can_cu_hien
 from src.services.llm import Usage
 from src.services.prompts import messages
+from src.services.thong_tin_noi_bo import CAU_NOI_BO, hoi_noi_bo, loc_ket
 from src.services.trich_dan import truong_trich_dan
 
 logger = logging.getLogger(__name__)
@@ -1680,7 +1681,38 @@ def _ban_thao_tong_quat(state: dict) -> dict:
     )
 
 
+def _loi_nguoi_hoi(st: dict) -> str:
+    """Chữ NGƯỜI HỎI đưa vào lượt — câu hỏi, các câu hỏi trước, hồ sơ, tên tệp, tài liệu
+    và bản thảo của họ (đã lọc ở nơi đọc chúng), dữ kiện đã gom. Một tên hãng có ở đây
+    là của người hỏi ("Công ty TNHH Google Việt Nam"), nên được lặp lại."""
+    phan = [
+        st.get(k)
+        for k in ("query", "cau_hoi_goc", "ho_so", "tai_lieu_phien", "tai_lieu_ket", "tai_lieu_neo", "ban_thao_ket")
+    ]
+    phan += [(st.get("soan_thao_dang_mo") or {}).get("facts")]
+    phan += [lt.get("cau_hoi") for lt in st.get("lich_su") or [] if isinstance(lt, dict)]
+    return json.dumps(phan, ensure_ascii=False, default=str)
+
+
 def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, prompt_path: Path | None = None) -> dict:
+    """Node cuối của MỌI nhánh graph tra cứu. Quyết định 2026-09-30 mục 11: lời model viết
+    rời graph ở đây, nên đây là chỗ thông tin nội bộ (tên model, nhà cung cấp, hạ tầng)
+    bị bỏ khỏi `answer`, `coverage_note`, phần phân tích, bảng, câu đã giải nghĩa và
+    lời mời biểu mẫu (`thong_tin_noi_bo.loc_ket`). Nguyên văn căn cứ không đổi.
+
+    Câu hỏi ghép luật với thông tin nội bộ ("tôi tranh chấp đất đai… à bạn dùng model
+    gì") đi nhánh pháp lý; phần nội bộ nhận `CAU_NOI_BO` do mã viết, 0 token, như câu ghép
+    của nhánh giới thiệu (`gioi_thieu.tra_loi_meta`)."""
+    ket = _dung_ket(state, db_provisions, llm, model, prompt_path)
+    ket = loc_ket(ket, _loi_nguoi_hoi(ket))
+    if ket.get("result_type") not in _META and hoi_noi_bo(state.get("cau_hoi_goc") or state.get("query") or ""):
+        k = "answer" if ket.get("answer") else "coverage_note"
+        if CAU_NOI_BO not in (ket.get(k) or ""):
+            ket[k] = f"{ket[k]}\n\n{CAU_NOI_BO}" if ket.get(k) else CAU_NOI_BO
+    return ket
+
+
+def _dung_ket(state: dict, db_provisions: dict[int, dict], llm, model: str, prompt_path: Path | None = None) -> dict:
     # Nhánh SOẠN VĂN BẢN từ tài liệu (S6) đứng trước nhánh tài liệu ngay dưới:
     # lượt này cũng mang `tai_lieu_ket` và cũng có `intent` trống, nhưng thứ
     # người hỏi xin là một BẢN THẢO, không phải một bản tóm tắt tài liệu.

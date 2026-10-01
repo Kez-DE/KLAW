@@ -160,19 +160,22 @@ def test_khong_co_client_thi_KHONG_gop_moi_nguoi_vao_mot_gio(cai_dat):
 # ══ Trần chi phí ngày — quyết định + thông điệp (KHÔNG ghi traces) ══════════
 
 
-def test_vuot_tran_thi_429_va_thong_diep_neu_DUNG_ly_do(cai_dat, monkeypatch):
+def test_vuot_tran_thi_429_va_thong_diep_neu_DUNG_ly_do(cai_dat, monkeypatch, caplog):
     """429 chung chung ("thử lại sau") làm người dùng và người vận hành đều đoán
-    sai nguyên nhân. Thông điệp phải nói rõ đây là TRẦN CHI PHÍ NGÀY và khi nào
-    mở lại."""
+    sai nguyên nhân. Thông điệp nói rõ hôm nay đã hết lượt và khi nào mở lại —
+    nhưng không nói trần hay số đã tiêu: chi phí là thông tin nội bộ (quyết định
+    2026-09-30 mục 11). Hai con số vào log cho người vận hành."""
     cai_dat(tran_chi_phi_ngay_usd=2.0)
     monkeypatch.setattr(bao_ve, "chi_phi_hom_nay", lambda: 2.5)
 
     with pytest.raises(HTTPException) as e:
         bao_ve.kiem_tran_chi_phi()
     assert e.value.status_code == 429
-    assert "trần chi phí ngày" in e.value.detail.lower()
-    assert "2.0" in e.value.detail or "2,0" in e.value.detail
+    assert "hôm nay" in e.value.detail and "mở lại lúc" in e.value.detail
+    assert "USD" not in e.value.detail and "chi phí" not in e.value.detail
+    assert "2.0" not in e.value.detail and "2.5" not in e.value.detail
     assert e.value.headers and "Retry-After" in e.value.headers
+    assert "2.0 USD" in caplog.text and "2.50000 USD" in caplog.text
 
 
 def test_duoi_tran_thi_qua(cai_dat, monkeypatch):
@@ -221,7 +224,7 @@ async def test_vuot_tran_chan_TRUOC_khi_graph_chay(client, cai_dat, monkeypatch)
     monkeypatch.setattr(routes, "_g", lambda: GraphBom())
     r = await client.post("/api/v1/tra-cuu", json=_CAU_HOI)
     assert r.status_code == 429
-    assert "trần chi phí ngày" in r.text.lower()
+    assert "đủ lượt hỏi cho hôm nay" in r.json()["detail"] and "USD" not in r.text
 
 
 # ══ Rate limit — bộ đếm trong Postgres (KHÔNG in-process) ═══════════════════

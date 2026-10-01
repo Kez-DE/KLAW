@@ -34,6 +34,7 @@ from difflib import SequenceMatcher
 from pathlib import Path
 
 from src.agents.nodes.dung_ban_thao_tong_quat import chua_dien_khuon
+from src.agents.nodes.gioi_thieu import chi_hoi_noi_bo
 from src.agents.nodes.route import Intent
 from src.agents.nodes.verify_tier1 import QUOTE_TOI_THIEU
 from src.services import khuon_mau
@@ -55,9 +56,12 @@ from src.services.neo_du_kien import LyDoNeo, Neo, normalize, xac_minh
 from src.services.phep_tinh import SAI_SO, so_bang_nhau, tinh, viet_so
 from src.services.prompts import messages
 from src.services.tai_lieu import VuotTran, kiem_tran_chi_phi_tai_lieu
+from src.services.thong_tin_noi_bo import CAU_NOI_BO_MOI, loc_cay
 
 logger = logging.getLogger(__name__)
 PROMPT_PATH = Path("prompts/hieu_tai_lieu.v1.md")
+# Trường nguyên văn tài liệu trong đầu ra của mô hình — phép neo kiểm chúng.
+_NGUYEN_VAN = frozenset({"trich", "trich_a", "trich_b"})
 # Tài liệu có khuôn gốc (kế hoạch `khuon-goc-dien-tai-cho.md`, P4b): prompt v2 thay
 # quy tắc 15 (dựng lại cả văn bản) bằng phép sửa trên chính tệp. v1 giữ nguyên cho
 # đường HTML — tài liệu tải lên trước khuôn gốc, và lượt soạn không có tài liệu.
@@ -3446,6 +3450,13 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
         # nó tự nghĩ ra một tài liệu.
         return _hong(CHUA_DOC_DUOC, "khong_co_tai_lieu")
 
+    # Quyết định 2026-09-30 mục 11 (vòng kiểm 2): lượt đính kèm không qua `route`, nên câu CHỈ
+    # hỏi thông tin nội bộ ("bạn có phải Gemini không" kèm một tệp) nhận câu cố định ở đây, 0
+    # lượt model, như nhánh giới thiệu. Câu ghép với việc đọc tài liệu ("… Tóm tắt hợp đồng
+    # này") đi tiếp và nhận `CAU_NOI_BO` ở `assemble`.
+    if goi and not soan_tu_do and chi_hoi_noi_bo(cau_hoi_nguoi):
+        return _hong(CAU_NOI_BO_MOI, "noi_bo")
+
     # Khuôn mẫu (quyết định 2026-09-29 mục 5): mọi lượt soạn không tài liệu mà
     # `graph_tra_cuu` đã chuẩn bị khuôn mẫu ra một tệp .docx — prompt v3, mô hình chỉ
     # viết điều khoản. Thiếu `khuon_mau_ngu_canh` (người gọi trực tiếp node, không qua
@@ -3531,6 +3542,15 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
         logger.warning("hieu_tai_lieu: lỗi (%s: %s)", type(e).__name__, e, exc_info=True)
         return _hong(CHUA_DOC_DUOC, "loi")
 
+    # Quyết định 2026-09-30 mục 11: tên model, nhà cung cấp, hạ tầng mà người hỏi và tài
+    # liệu của họ không đưa vào không ra khỏi đây — lời đáp, quan sát, suy luận, bản thảo
+    # (kể cả khi tài liệu cài lời xin "ghi tên model vào hợp đồng"). TRƯỚC mọi phép neo,
+    # làm sạch và lưu; một tên CÓ trong tài liệu ("Công ty TNHH Google Việt Nam") ở lại.
+    # Câu trích (`trich…`) đi qua nguyên vẹn: nó phải neo vào tài liệu ngay dưới, nên là chữ
+    # của người dùng (vòng kiểm 2: lọc nó làm mất quan sát trích đúng hợp đồng của họ). Bản
+    # thảo là văn bản KLAW soạn (`soan`).
+    nguon_ra = _nguon_soan(goi, state, [], [], bo_nho_cho_phep)
+    ra = {k: loc_cay(v, nguon_ra, giu=_NGUYEN_VAN, soan=k in ("van_ban", "khuon")) for k, v in ra.items()}
     theo_nhan = {t["nhan"]: t for t in goi}
     giu: list[dict] = []
     dem = {f"hieu_tai_lieu_bo_{ly.value}": 0 for ly in LyDoNeo if ly is not LyDoNeo.ok}
@@ -4422,9 +4442,10 @@ def _soan_khuon_mau(
     except Exception as e:
         logger.warning("hieu_tai_lieu khuôn mẫu: lỗi (%s: %s)", type(e).__name__, e, exc_info=True)
         return hong(CHUA_SOAN_DUOC, "loi")
-    kq = kiem_khuon_mau(
-        ra, ng, _nguon_soan([], state, [], [], bo_nho_cho_phep), bo_nho_cam, ten_dieu_cua(tai_lieu_cu) if sua else []
-    )
+    nguon = _nguon_soan([], state, [], [], bo_nho_cho_phep)
+    # Mục 11, cùng lưới đường tài liệu ngay trên: TRƯỚC `kiem_khuon_mau`, nơi số trong
+    # "GPT-4o" đã bị thay bằng chỗ trống mà tên hãng thì còn.
+    kq = kiem_khuon_mau(loc_cay(ra, nguon, soan=True), ng, nguon, bo_nho_cam, ten_dieu_cua(tai_lieu_cu) if sua else [])
     if (
         ng.get("ban_hanh")
         and kq["muc_tieu"] == "sua_ban_dang_co"

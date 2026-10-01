@@ -33,6 +33,7 @@ from src.services.db import get_engine
 from src.services.doc_tai_lieu import ChuyenDoiKhongSanSang, KhongDocDuoc, LoaiHong, TaiLieuDaDoc, doc
 from src.services.phan_loai_tai_lieu import KetQuaPhanLoai, phan_loai
 from src.services.tai_lieu import VuotTran
+from src.services.thong_tin_noi_bo import loc_noi_bo
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -498,7 +499,9 @@ async def chi_tiet(viec_id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> 
         loai_ten=ten,
         ten_tep=viec.get("ten_tep") or "",
         so_don_vi=viec.get("so_don_vi") or 0,
-        mo_ta=viec.get("mo_ta"),
+        # Mô tả do mô hình viết; dòng lưu trước quyết định 2026-09-30 mục 11 đọc lại qua
+        # các luật LUÔN bỏ (`thong_tin_noi_bo`, `cho_phep=None`).
+        mo_ta=loc_noi_bo(viec.get("mo_ta"), None),
     )
 
 
