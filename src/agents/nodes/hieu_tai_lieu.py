@@ -55,6 +55,7 @@ from src.services.neo_du_kien import LyDoNeo, Neo, normalize, xac_minh
 from src.services.phep_tinh import SAI_SO, so_bang_nhau, tinh, viet_so
 from src.services.prompts import messages
 from src.services.tai_lieu import VuotTran, kiem_tran_chi_phi_tai_lieu
+from src.services.thong_tin_noi_bo import loc_cay
 
 logger = logging.getLogger(__name__)
 PROMPT_PATH = Path("prompts/hieu_tai_lieu.v1.md")
@@ -3531,6 +3532,11 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
         logger.warning("hieu_tai_lieu: lỗi (%s: %s)", type(e).__name__, e, exc_info=True)
         return _hong(CHUA_DOC_DUOC, "loi")
 
+    # Quyết định 2026-09-30 mục 11: tên model, nhà cung cấp, hạ tầng mà người hỏi và tài
+    # liệu của họ không đưa vào không ra khỏi đây — lời đáp, quan sát, suy luận, bản thảo
+    # (kể cả khi tài liệu cài lời xin "ghi tên model vào hợp đồng"). TRƯỚC mọi phép neo,
+    # làm sạch và lưu; một tên CÓ trong tài liệu ("Công ty TNHH Google Việt Nam") ở lại.
+    ra = loc_cay(ra, _nguon_soan(goi, state, [], [], bo_nho_cho_phep))
     theo_nhan = {t["nhan"]: t for t in goi}
     giu: list[dict] = []
     dem = {f"hieu_tai_lieu_bo_{ly.value}": 0 for ly in LyDoNeo if ly is not LyDoNeo.ok}
@@ -4422,9 +4428,10 @@ def _soan_khuon_mau(
     except Exception as e:
         logger.warning("hieu_tai_lieu khuôn mẫu: lỗi (%s: %s)", type(e).__name__, e, exc_info=True)
         return hong(CHUA_SOAN_DUOC, "loi")
-    kq = kiem_khuon_mau(
-        ra, ng, _nguon_soan([], state, [], [], bo_nho_cho_phep), bo_nho_cam, ten_dieu_cua(tai_lieu_cu) if sua else []
-    )
+    nguon = _nguon_soan([], state, [], [], bo_nho_cho_phep)
+    # Mục 11, cùng lưới đường tài liệu ngay trên: TRƯỚC `kiem_khuon_mau`, nơi số trong
+    # "GPT-4o" đã bị thay bằng chỗ trống mà tên hãng thì còn.
+    kq = kiem_khuon_mau(loc_cay(ra, nguon), ng, nguon, bo_nho_cam, ten_dieu_cua(tai_lieu_cu) if sua else [])
     if (
         ng.get("ban_hanh")
         and kq["muc_tieu"] == "sua_ban_dang_co"

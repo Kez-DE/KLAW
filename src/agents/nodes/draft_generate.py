@@ -14,6 +14,7 @@ from pathlib import Path
 
 from src.agents.nodes.generate_claims import build_context
 from src.services.prompts import messages
+from src.services.thong_tin_noi_bo import loc_cay
 
 PROMPT_PATH = Path("prompts/draft_generate.v1.md")
 
@@ -44,8 +45,11 @@ def draft_generate(state: dict, llm, model: str) -> dict:
         context=build_context(state.get("expanded") or []),
     )
     raw, usage = llm.chat(model, messages(prompt), json_schema=CLAUSES_SCHEMA)
+    # Quyết định 2026-09-30 mục 11: điều khoản không nêu tên model hay hãng mà dữ kiện của
+    # người hỏi không có — một bên tên "Công ty TNHH Google Việt Nam" họ khai thì ở lại.
+    nguon = json.dumps(state["facts"], ensure_ascii=False)
     try:
-        clauses = [DraftClause(**c) for c in json.loads(raw).get("clauses", [])]
+        clauses = [DraftClause(**loc_cay(c, nguon)) for c in json.loads(raw).get("clauses", [])]
         schema_error = False
     except (json.JSONDecodeError, TypeError, ValueError):
         clauses, schema_error = [], True

@@ -26,6 +26,7 @@ from src.agents.nodes.gom_du_kien import truong_cua
 from src.services.doc_tai_lieu import TaiLieuDaDoc
 from src.services.neo_du_kien import LyDoNeo, loc_co_neo
 from src.services.prompts import messages
+from src.services.thong_tin_noi_bo import loc_noi_bo
 
 logger = logging.getLogger(__name__)
 PROMPT_PATH = Path("prompts/rut_du_kien.v1.md")
@@ -107,11 +108,13 @@ def rut_du_kien(loai: str, tai_lieu: TaiLieuDaDoc, llm, model: str) -> dict:
         ra, usage, nguon = {}, None, "loi"
 
     tho: list[dict] = []
+    # Quyết định 2026-09-30 mục 11: giá trị chỉ được nêu tên hãng có trong chính tài liệu.
+    chu_tai_lieu = "\n".join(d.noi_dung for d in tai_lieu.don_vi)
     for t in truong_cua(loai):
         o = ra.get(t["key"]) or {}
         if not isinstance(o, dict):
             continue
-        gia_tri = str(o.get("gia_tri") or "").strip()
+        gia_tri = loc_noi_bo(str(o.get("gia_tri") or "").strip(), chu_tai_lieu)
         if not gia_tri:
             continue
         tho.append(

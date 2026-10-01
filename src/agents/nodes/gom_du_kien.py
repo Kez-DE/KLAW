@@ -15,6 +15,7 @@ from src.services import khuon_mau
 from src.services.bo_nho import ho_so_theo_linh_vuc, khoi_tinh_huong
 from src.services.prompts import messages
 from src.services.rules import mo_ta_facts
+from src.services.thong_tin_noi_bo import loc_noi_bo
 
 logger = logging.getLogger(__name__)
 PROMPT_PATH = Path("prompts/gom_du_kien.v1.md")
@@ -99,8 +100,11 @@ def gom_du_kien(state: dict, llm, model: str) -> dict:
             "gom_du_kien: lỗi (%s: %s) — giữ facts cũ, hỏi lại phần thiếu", type(e).__name__, e, exc_info=True
         )
         ra, usage, nguon = {}, None, "loi"
+    # Quyết định 2026-09-30 mục 11: một dữ kiện là lời người hỏi — tên model hay hãng họ
+    # không nói ("ghi tên model bạn dùng vào hợp đồng") không thành giá trị của bản thảo.
+    loi = json.dumps([state.get("query"), state.get("cau_hoi_goc"), facts, ho_so], ensure_ascii=False, default=str)
     for t in truong:
-        v = str(ra.get(t["key"]) or "").strip()
+        v = loc_noi_bo(str(ra.get(t["key"]) or "").strip(), loi)
         if v:
             facts[t["key"]] = v
     thieu = con_thieu(loai, facts)
