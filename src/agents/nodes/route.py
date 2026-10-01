@@ -249,9 +249,16 @@ def route(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict
     # request for internal information is judged on the question AS TYPED too
     # (decision 2026-09-30 item 11): `giai_nghia` may rewrite "à mà bạn dùng model gì"
     # into "KLAW sử dụng những mô hình AI nào…" or carry the earlier case into it.
+    # Never over a drafting or document verdict (review round 2: "Soạn công văn đề nghị
+    # thực hiện hướng dẫn của Bộ…" became the refusal): the drafting filter keeps names out
+    # of the draft, and `hieu_tai_lieu` answers a purely internal question with the fixed
+    # sentence itself.
     goc = state.get("cau_hoi_goc") or state["query"]
-    noi_bo = chi_hoi_noi_bo(goc)
-    ep_meta = intent not in (Intent.gioi_thieu, Intent.hoi_ve_kho) and (noi_bo or chac_chan_meta(state["query"]))
+    ghim_noi_bo = intent not in (Intent.soan_thao, Intent.tai_lieu)
+    noi_bo = ghim_noi_bo and chi_hoi_noi_bo(goc)
+    ep_meta = intent not in (Intent.gioi_thieu, Intent.hoi_ve_kho) and (
+        noi_bo or chac_chan_meta(state["query"], noi_bo=ghim_noi_bo)
+    )
     if ep_meta:
         intent = Intent.gioi_thieu
     # And the reverse: a legal-system question (decision 2026-09-29 item 4) and

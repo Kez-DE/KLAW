@@ -56,7 +56,9 @@ from src.services.thong_tin_noi_bo import (
     CAU_NOI_BO,
     CAU_NOI_BO_MOI,
     RE_HOI_NOI_BO,
+    bo_dau_cau_hoi,
     chep_loi_nhac,
+    chuan_cau_hoi,
     co_noi_bo,
     hoi_noi_bo,
 )
@@ -80,20 +82,18 @@ META_SCHEMA = {
 # DẠNG trong một câu đã biết là hỏi về trợ lý.
 
 # Thông tin nội bộ (quyết định 2026-09-30 mục 11): model, nhà cung cấp, lời nhắc,
-# hạ tầng, chi phí, khoá, ngưỡng kiểm chứng — đúng các câu `RE_HOI_NOI_BO` nhận (gọi
-# KLAW, hỏi thứ nội bộ), cộng vài dấu hiệu trần chỉ có nghĩa nội bộ trong một câu đã biết
-# là hỏi về trợ lý ("model gì vậy", "chạy bằng gì"). Không danh từ trần ("ngưỡng",
-# "server", "mô hình", "nhà cung cấp", tên hãng): "bạn có tra cứu được ngưỡng doanh thu
-# chịu thuế không", "KLAW có hướng dẫn về mô hình hợp tác xã không", "bạn soạn được hợp
-# đồng với Google không" hỏi việc KLAW làm. Viết không dấu như `RE_HOI_NOI_BO`; `_khop`
-# so nó trên câu đã bỏ dấu. `_khop` gỡ các khía cạnh khác khớp BÊN TRONG cụm này hay
-# (danh tính, bản chất) SAU nó, nên "model của bạn là ai", "KLAW được triển khai ở đâu"
-# chỉ ra `noi_bo`.
+# hạ tầng, chi phí, khoá, ngưỡng kiểm chứng — CÙNG bộ nhận với ghim và câu nối của nhánh
+# pháp lý (`RE_HOI_NOI_BO`; vòng kiểm 2: hai bộ nhận lệch nhau làm "bạn là ai, chạy trên
+# mô hình nào" mất câu cố định), cộng chữ chỉ có nghĩa nội bộ trong một câu đã biết là hỏi
+# về trợ lý ("model gì vậy", "chạy bằng gì", "api key"). Không danh từ trần ("ngưỡng",
+# "server", "mô hình", "công nghệ", tên hãng): "bạn hỗ trợ những lĩnh vực công nghệ nào",
+# "KLAW có tra cứu được quy định về mô hình AI không" hỏi việc KLAW làm. `_khop` so nó trên
+# câu đã bỏ dấu và gỡ các khía cạnh khác khớp BÊN TRONG cụm này hay (danh tính, bản chất)
+# SAU nó, nên "model của bạn là ai", "KLAW được triển khai ở đâu" chỉ ra `noi_bo`.
 _RE_NOI_BO = re.compile(
     rf"{RE_HOI_NOI_BO.pattern}"
-    r"|\bm[o0]d+e?l+\b|\bmdoel\b|\bmodle\b|\bllm\b|\bprompt\b|mo\s*hinh\s+(?:ngon\s+ngu|ai)\b"
-    r"|\bai\s+(?:nao|gi|j)\b|cong\s+nghe\s+(?:nao|gi|j)\b|nen\s+tang\s+(?:nao|gi|j)\b"
-    r"|chay\s+(?:bang|tren)\s+(?:gi|j|cai\s+gi)\b|\bapi\s*key\b|khoa\s+api"
+    r"|\bm[o0]d+e?l+\b|\bmdoel\b|\bmodle\b|\bllm\b|\bapi\s*key\b|\bkey\s*api\b|khoa\s+api"
+    r"|chay\s+(?:bang|tren)\s+(?:gi|j|cai\s+gi)\b"
 )
 
 # Nguồn dữ liệu / có tin được không. "đặt/host/chạy ở đâu" hỏi hạ tầng (`noi_bo`), không hỏi nguồn.
@@ -228,22 +228,26 @@ _RE_KHIA_CANH = {
     "kho": _RE_KHO,
     "soan_thao": _RE_SOAN_THAO,
     "nguon": _RE_NGUON,
-    # `noi_bo` (`_RE_NOI_BO`) so trên câu bỏ dấu, ở `_khop`.
+    # `noi_bo` (`_RE_NOI_BO`) so trên câu bỏ dấu (`bo_dau_cau_hoi`), ở `_khop`.
 }
 
 # Ba khía cạnh phải đọc kho thật mới trả lời được.
 _KHIA_CANH_KHO = ("bo_luat", "linh_vuc", "kho")
 
 
-def _khop(c: str) -> dict[str, int]:
-    """Khía cạnh → vị trí khớp ĐẦU TIÊN trong câu đã chuẩn hoá. Rỗng nghĩa là
-    câu không nêu khía cạnh nào (→ mặc định `nang_luc` ở `khia_canh`)."""
+def _khop(cau_hoi: str) -> dict[str, int]:
+    """Khía cạnh → vị trí khớp ĐẦU TIÊN trong câu hỏi. Rỗng nghĩa là câu không nêu
+    khía cạnh nào (→ mặc định `nang_luc` ở `khia_canh`). So trên câu giữ dấu câu
+    (`chuan_cau_hoi`): vế sau dấu phẩy của câu ghép "bạn tên gì, model gì" cần nó."""
+    c = chuan_cau_hoi(cau_hoi)
     vi = {ten: m.start() for ten, bt in _RE_KHIA_CANH.items() if (m := bt.search(c))}
-    # Bỏ dấu giữ nguyên độ dài chữ NFC, nên vị trí so được với các khía cạnh khác. Một
+    # `bo_dau_cau_hoi` giữ nguyên độ dài, nên vị trí so được với các khía cạnh khác. Một
     # khía cạnh khớp BÊN TRONG cụm hỏi nội bộ là một phần của nó: "ở đâu" trong "KLAW được
-    # triển khai ở đâu" không hỏi nguồn dữ liệu.
-    if nb := _RE_NOI_BO.search(_bo_dau(c)):
-        vi = {t: v for t, v in vi.items() if not nb.start() <= v < nb.end()} | {"noi_bo": nb.start()}
+    # triển khai ở đâu" không hỏi nguồn dữ liệu. Cụm của câu ghép bắt đầu ở vế nội bộ (nhóm
+    # `ve`): "là ai" trong "bạn là ai và dùng model gì" là khía cạnh của vế trước.
+    if nb := _RE_NOI_BO.search(bo_dau_cau_hoi(cau_hoi)):
+        dau = nb.start("ve") if nb.group("ve") is not None else nb.start()
+        vi = {t: v for t, v in vi.items() if not dau <= v < nb.end()} | {"noi_bo": dau}
 
     # `noi_bo`/`nguon` là dấu hiệu HẸP hơn "là ai"/"là gì". Khi chúng đứng TRƯỚC
     # trong câu thì "là ai"/"là gì" là vị ngữ của CHÍNH CHÚNG: "model của bạn là
@@ -274,7 +278,7 @@ def khia_canh(cau_hoi: str) -> list[str]:
     màn hình trắng mà cả pha này tồn tại để bỏ đi. Chỉ đúng cho lượt
     `gioi_thieu`; lượt `hoi_ve_kho` dùng `khia_canh_kho`.
     """
-    return _thu_tu(_khop(_chuan(cau_hoi)))
+    return _thu_tu(_khop(cau_hoi))
 
 
 TOI_DA_LINH_VUC = 6
@@ -351,15 +355,16 @@ def chi_hoi_noi_bo(cau_hoi: str) -> bool:
     )
 
 
-def chac_chan_meta(cau_hoi: str) -> bool:
+def chac_chan_meta(cau_hoi: str, noi_bo: bool = True) -> bool:
     """True when the question is unmistakably about KLAW or the corpus: a meta
     branch, an anchor naming KLAW or its documents, no legal-content marker and
     no situation. The router's LLM verdict is then overridden to gioi_thieu.
 
     A request for internal information is pinned too (`chi_hoi_noi_bo`), digits
-    allowed ("gpt-4o"), so it always gets the fixed sentence."""
+    allowed ("gpt-4o"), so it always gets the fixed sentence — unless `noi_bo` is
+    False (`route` on a drafting or document verdict, which answers it itself)."""
     c = _chuan(cau_hoi)
-    if chi_hoi_noi_bo(cau_hoi):
+    if noi_bo and chi_hoi_noi_bo(cau_hoi):
         return True
     return (
         bool(_RE_META_MANH.search(c))
@@ -454,7 +459,7 @@ def khia_canh_kho(cau_hoi: str) -> list[str]:
     addresses KLAW, and `["kho"]` when nothing is left (trace fa18ddce: a kho
     question naming no facet got the KLAW introduction)."""
     c = _chuan(cau_hoi)
-    vi = _khop(c)
+    vi = _khop(cau_hoi)
     if not (_RE_NOI_VOI_KLAW.search(c) or hoi_noi_bo(cau_hoi)):
         vi = {t: v for t, v in vi.items() if t not in _KHIA_CANH_KLAW}
     return _thu_tu(vi, "kho")
@@ -659,7 +664,7 @@ def _du_phong(cau_hoi: str, bang: dict[str, str], cac: list[str], luot_dau: bool
     người hỏi, rồi câu giới hạn (chỉ khi hỏi về văn bản và bảng có số liệu) và
     đúng MỘT lời mời tiếp."""
     c = _chuan(cau_hoi)
-    if _RE_CAM_ON.search(c) and not _khop(c):
+    if _RE_CAM_ON.search(c) and not _khop(cau_hoi):
         return CAM_ON
     if _RE_CHAO.fullmatch(c):
         return f"Chào bạn. {bang['vai_tro']}\n\n{HOI_TIEP_NANG_LUC}"
@@ -689,7 +694,7 @@ def co_khia_canh(cau_hoi: str) -> bool:
     trên câu NGƯỜI DÙNG GÕ khi câu đó tự nói được, không trên câu đã giải nghĩa:
     trace 8eb13b06, "bạn là ai" viết lại thành "KLAW là ai và làm được gì" thêm
     một khía cạnh không ai hỏi."""
-    return bool(_khop(_chuan(cau_hoi)))
+    return bool(_khop(cau_hoi))
 
 
 # ══ Lọc lời model theo bảng ════════════════════════════════════════════════════
