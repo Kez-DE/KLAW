@@ -112,9 +112,19 @@ Active. Owner decisions accepted 2026-09-30; decision record
   the SSE error event, cache hits, and stored turns read back from history. Progress label for tier 2
   and two fixed strings naming infrastructure changed. Fake-LLM tests for every path
   (`tests/test_services/test_thong_tin_noi_bo.py`, `tests/test_agents/test_thong_tin_noi_bo.py`,
-  `tests/test_api/test_thong_tin_noi_bo_api.py`). Open: real-app check; drafts stored before
-  the fix are not re-filtered; a vendor name the asker types in a legal question may be
-  echoed.
+  `tests/test_api/test_thong_tin_noi_bo_api.py`). Open: real-app check.
+  - Review round 1 (2026-10-01, ADR item 11(e)): self-identification and model authorship
+    always dropped (even with the vendor name in the asker's text or document); version
+    tails and surface forms compared; prompt recitation caught by a 10-word fingerprint (0 of
+    113,758 provisions changed; on stored outputs only the real leaks: eval `trap-soul-09`,
+    the owner's "Tôi chạy trên mô hình ngôn ngữ google/gemini-…" turn); user-supplied
+    "system prompt" text and "SK-…" numbers kept; mixed legal + internal questions get the
+    fixed sentence; question recognition widened (unaccented, typos, provenance, infra,
+    cost, prompt, English) and narrowed (0 of 188 eval questions newly pinned besides
+    `trap-soul-09`); pins follow the typed question across turns; stored turns, drafts and
+    document descriptions re-read through the always-drop rules; 5xx-only HTTP handler;
+    cost cap 429 without amounts; API docs only in development. CI lane 4,677 passed.
+    Open: config_name label in responses (owner's call; breaking change for the SSE client).
 
 ## Result
 

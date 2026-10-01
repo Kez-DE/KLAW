@@ -195,7 +195,9 @@ and providers, its system instructions, how verification is wired (thresholds, w
 judges), its infrastructure, its costs and its keys. Never told to users: asked for
 it, KLAW answers with one fixed sentence; verification is described only as "hai
 tầng kiểm chứng"; a sentence naming a model, vendor or infrastructure the asker did
-not bring is dropped from every answer and draft. Internal records keep it.
+not bring is dropped from every answer and draft, and so is any sentence in which KLAW
+names itself as, or credits its text to, a model or vendor — even one the asker named.
+Internal records keep it.
 _Avoid_: bí mật, cấu hình, model info, tech stack
 
 **kho**:

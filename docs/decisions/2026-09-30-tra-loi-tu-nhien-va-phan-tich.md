@@ -138,11 +138,35 @@ lời kiểu bot". Đo trên app thật cùng ngày (traces 88117154…, 8eb13b0
     bao giờ bị đụng; "mô hình tổ chức" và bên hợp đồng "Công ty TNHH Google Việt Nam" người hỏi
     nêu thì ở lại; yêu cầu cài trong tài liệu hay lời xin soạn ("ghi tên model bạn dùng vào hợp
     đồng") không đưa được tên nào vào bản thảo. "Nên đối chiếu thêm" và cảnh báo hiệu lực
-    dựng từ tên văn bản trong DB, không có chữ model, nên không cần lọc. Giới hạn đã biết:
-    người hỏi tự gõ tên hãng trong một câu hỏi pháp luật thì câu trả lời được lặp lại tên
-    đó, kể cả một câu xác nhận ("Tôi là Gemini"); lời nhắc hệ thống bị chép lại mà không nêu
-    chữ "system prompt" không bị nhận ra; bản thảo lưu trước bản vá không được lọc lại khi
-    mở.
+    dựng từ tên văn bản trong DB, không có chữ model, nên không cần lọc.
+    (e) Vòng kiểm 2026-10-01. Câu KLAW tự xưng là, chạy trên, dùng, hay được soạn bởi một mô
+    hình/hãng ("Đúng, tôi là Gemini", "Điều khoản này do mô hình ngôn ngữ của Google soạn")
+    LUÔN bị bỏ, kể cả khi người hỏi gõ đúng tên đó; tên đứng sau "Công ty", "TNHH"… là một
+    bên hợp đồng, không bao giờ là câu tự xưng. Tên được so cả đuôi phiên bản ("Gemini" trong
+    tài liệu không cấp phép cho "Gemini 2.5 Flash Lite") và không phân biệt khoảng trắng hay
+    "/" ("Chat GPT" = "ChatGPT", "Google/Facebook" chỉ xét "Google"). Câu chép lại lời nhắc bị
+    bỏ bằng vân tay 10 từ của các lời nhắc (SOUL, đọc tài liệu, soạn thảo, giới thiệu…; trừ
+    câu mẫu trong ngoặc kép và cụm chung với lời nhắc viết câu trả lời hay định tuyến), đo
+    trên 113.758 điều khoản của kho: 0 câu đổi; nhánh giới thiệu thêm vân tay 5 từ của lời
+    nhắc của nó. Chữ "system prompt" người dùng tự đưa vào (hợp đồng dịch vụ chatbot) được
+    lặp lại; "lời nhắc hệ thống của tôi" thì không; khoá chỉ là chuỗi có dạng khoá
+    ("SK-2024-000123" là số hợp đồng). Câu hỏi ghép luật với thông tin nội bộ đi nhánh pháp
+    lý và nhận thêm câu đầu của (b) do mã viết. Cách hỏi được nhận cả không dấu, viết tắt,
+    gõ sai, nguồn gốc ("ai tạo ra bạn"), hạ tầng, chi phí, lời nhắc và tiếng Anh, nhưng phải
+    gọi KLAW và hỏi đúng thứ nội bộ: "nếu bạn dùng mô hình hộ kinh doanh", "biển quảng cáo
+    bạn đặt ở đâu", "bạn có tra cứu được ngưỡng doanh thu chịu thuế không" là câu hỏi luật
+    hay câu hỏi việc KLAW làm; câu có chữ pháp lý (hợp đồng, thuế, đăng ký, luật…) không bị
+    ghim. Ghim xét cả câu người dùng GÕ ở lượt nối tiếp, và tình huống của lượt trước không
+    đảo ngược nó. Đọc lại: lượt đã lưu không phải lời giới thiệu, bản thảo (drawer, phiên bản
+    cũ) và mô tả tài liệu chỉ qua các luật LUÔN bỏ — mọi tên ở lại, để một bên hợp đồng nêu
+    trong tài liệu hay gõ tay không mất; lời giới thiệu cũ bỏ mọi tên và mọi câu kể kiểm chứng
+    bằng "model" hay "khác họ". Biên HTTP: handler chung chỉ lọc 5xx (một 4xx lặp lại tên tệp
+    người dùng đặt không thành "thử lại sau"), ba chỗ đặt `str(e)` vào 4xx tự lọc; 429 trần chi
+    phí ngày không nêu số tiền (số vào log); /docs, /redoc, /openapi.json chỉ mở khi
+    `APP_ENV=development`. Giới hạn đã biết: câu chép lời nhắc ngắn hơn 10 từ; lời nhắc viết
+    câu trả lời và định tuyến không có vân tay; danh sách cách hỏi, khung tự xưng và tên hãng
+    đóng; "tôi" trong lá đơn người dùng soạn là chính họ, nên "Tôi dùng Google Drive để lưu…"
+    trong đơn cũng bị bỏ; nhãn cấu hình eval `config_name` ("full") vẫn trong phản hồi.
 
 ## Alternatives Considered
 
