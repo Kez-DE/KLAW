@@ -125,6 +125,19 @@ Active. Owner decisions accepted 2026-09-30; decision record
     document descriptions re-read through the always-drop rules; 5xx-only HTTP handler;
     cost cap 429 without amounts; API docs only in development. CI lane 4,677 passed.
     Open: config_name label in responses (owner's call; breaking change for the SSE client).
+  - Review round 2 (2026-10-01, ADR item 11(f)): one recognizer for facet, pin and the
+    legal-path append; accent-aware addressee (bản/bán/máy no longer read as bạn/mày), so
+    legal questions about copyright, drawings, machinery, sales costs and ministry guidance
+    are no longer pinned (0 of 113,758 provisions, accented or not; 1/196 eval and 3/1,488
+    stored questions match, all real requests); pin never overrides drafting or document
+    verdicts; attachment turns asking only for internal info get the fixed reply. Filter:
+    hard first-person and answer/draft-authorship rules, context rules keyed to the user's
+    own wording (26/26 planted self-ID and 11/11 authorship probes dropped; legal sentences
+    naming user-typed vendors kept); folded, cross-sentence fingerprint covering assemble.*
+    instructions (recitation of hieu_tai_lieu.v1: 2/2,011 words survive, was 396); session
+    memory, template edit turns and the chat draft view filtered. CI lane 4,879 passed.
+    Open: production count of pre-fix KLAW-built templates (page images and downloads serve
+    stored bytes until the next edit); config_name label.
 
 ## Result
 

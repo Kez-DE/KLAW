@@ -167,6 +167,38 @@ lời kiểu bot". Đo trên app thật cùng ngày (traces 88117154…, 8eb13b0
     câu trả lời và định tuyến không có vân tay; danh sách cách hỏi, khung tự xưng và tên hãng
     đóng; "tôi" trong lá đơn người dùng soạn là chính họ, nên "Tôi dùng Google Drive để lưu…"
     trong đơn cũng bị bỏ; nhãn cấu hình eval `config_name` ("full") vẫn trong phản hồi.
+    (f) Vòng kiểm 2, 2026-10-01. Khía cạnh `noi_bo`, ghim và câu nối của nhánh pháp lý dùng
+    MỘT bộ nhận (`RE_HOI_NOI_BO`, chia nhánh có tên). Câu có dấu giữ chữ gọi: "bản", "bán",
+    "máy" không phải "bạn", "mày"; "b", "m" chỉ gọi KLAW ở đầu vế; "của Bộ/bên" không gọi
+    KLAW — nên "Ai sở hữu bản quyền…", "Chi phí bán hàng gồm những gì", "Thực hiện hướng dẫn
+    của Bộ Tài chính…" không còn bị ghim; "cơ sở dữ liệu" của KLAW là nguồn văn bản luật, được
+    trả lời. Câu ghép giữ khía cạnh vế trước ("bạn tên gì, model gì": danh tính do mô hình
+    viết, phần nội bộ là câu cố định). Ghim không đè lượt soạn hay lượt tài liệu; lượt đính
+    kèm chỉ hỏi thông tin nội bộ nhận câu cố định, 0 lượt mô hình. Đo: 0/113.758 điều khoản
+    khớp (có dấu và bỏ dấu), 1/196 câu eval và 3/1.488 câu đã lưu khớp, đều là câu đòi thật.
+    Bộ lọc hai tầng. Luật cứng, không ngoại lệ: KLAW ngôi thứ nhất (cả "em", "trợ lý AI
+    này", "mô hình tôi đang dùng", "bạn đang trò chuyện với", "this assistant", "được triển
+    khai trên"), và "câu trả lời/bản thảo do X soạn". Luật ngữ cảnh: tên người hỏi đưa vào
+    đứng cạnh chữ gọi trợ lý, tên hạ tầng của KLAW, nhãn đầu câu, câu "we …", khung tác giả
+    của một văn bản, và — trên đường soạn — cạnh danh từ AI, chỉ ở lại khi hai từ đứng trước
+    nó cùng tên có nguyên văn trong chữ người dùng. Động từ soạn đủ từ ("dịch vụ", "giao
+    dịch", "chấm công", "trí tuệ nhân tạo" không phải). "prompt của tôi", "my instructions",
+    "chỉ dẫn tôi được giao" được lặp lại khi người hỏi đưa vào. Câu trích đã neo vào tài liệu
+    đi qua nguyên vẹn. Vân tay so trên chữ bỏ dấu, bỏ mọi câu một cụm chạm tới (kể cả cụm vắt
+    qua câu hay dòng), và phủ phần chỉ dẫn của `assemble.*` (khối ví dụ và câu mẫu là vách
+    ngăn); nhánh giới thiệu cấp phép các dòng mô tả lời đáp của lời nhắc của nó. Đo: 26/26
+    câu tự xưng của một tài liệu cài lời xin và 11/11 câu ghi tác giả bị bỏ; 0/113.758 điều
+    khoản đổi; 0/388 trường câu trả lời đã lưu và 0/596 câu giới thiệu đã lưu trúng vân tay;
+    đọc lại 324 lượt và 52 bản thảo đổi đúng như trước vòng này (5 lượt, đều là rò thật).
+    Sổ tay phiên chỉ giữ tên người hỏi gõ — nó hiện thành chip "Dựa trên: …", vào hồ sơ tài
+    khoản và cấp phép tên cho câu trả lời sau; lượt sửa khuôn mẫu dựng tệp mới từ điều khoản
+    đã lọc; lối tắt "xem bản thảo" qua lưới đọc lại. Giới hạn đã biết thêm: một tài liệu cài
+    sẵn các câu để mô hình CHỌN câu đúng mà lặp lại là kênh chọn lựa, bộ lọc chữ không chặn
+    được; câu "Đúng vậy." trần trả lời phần nội bộ của một câu ghép trên nhánh pháp lý không có
+    tên nào để bắt; ảnh trang và tệp tải về của khuôn mẫu KLAW dựng TRƯỚC bản vá phục vụ byte
+    đã lưu tới lượt sửa kế tiếp (DB cục bộ: 0 dòng mang tên hãng; production chưa đếm); cách
+    hỏi ngoài danh sách (framework, RAG, ngôn ngữ lập trình, "bạn tốn bao nhiêu tiền mỗi
+    tháng") đi router và chỉ được bộ lọc chặn tên.
 
 ## Alternatives Considered
 
