@@ -77,6 +77,16 @@ def test_ngoai_pham_vi_tra_out_of_scope_va_KHONG_goi_LLM():
     assert st["result_type"] is ResultType.out_of_scope and st["answer"] is None
 
 
+def test_ngoai_pham_vi_noi_dung_pham_vi_moi():
+    """ADR 2026-09-30 mục 6: phạm vi là pháp luật Việt Nam, sâu nhất ở lao động —
+    câu từ chối không còn nói "6 Bộ luật" hay "chỉ soạn thảo lao động", và không
+    nhắc "kho" (mục 4)."""
+    st = assemble({"intent": "ngoai_pham_vi"}, DB, FakeLlm(), "m")
+    note = st["coverage_note"]
+    assert "pháp luật Việt Nam" in note and "lao động" in note
+    assert "6 Bộ luật" not in note and "chỉ soạn thảo" not in note and "kho" not in note
+
+
 def test_deep_rong_shallow_co_thi_partial_coverage_va_KHONG_goi_LLM_hanh_van():
     """`partial_coverage` không còn là nhánh 0 token — nó tiêu MỘT lượt sinh câu
     hỏi lại (Pha 2, cố ý). Cái KHÔNG đổi: nó tuyệt đối không được gọi LLM HÀNH

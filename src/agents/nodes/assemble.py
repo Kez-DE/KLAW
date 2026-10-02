@@ -700,8 +700,8 @@ def gan_van_ban_khong_hien_thi(ket: dict, an: list[dict]) -> dict:
 # `intent == ngoai_pham_vi`. HẰNG SỐ để phép quét giọng (`test_giong_tra_loi`)
 # nhìn thấy được — một chuỗi viết thẳng vào lời gọi `_base` thì không hằng số
 # nào tồn tại để quét.
-NGOAI_PHAM_VI = ("Câu hỏi này nằm ngoài phạm vi tôi phủ: tôi chỉ tra được 6 Bộ luật của "
-                 "Việt Nam, và chỉ soạn thảo trong lĩnh vực lao động.")
+NGOAI_PHAM_VI = ("Câu hỏi này nằm ngoài phạm vi tôi phủ: tôi tra cứu và soạn văn bản theo "
+                 "pháp luật Việt Nam, sâu nhất ở lĩnh vực lao động.")
 
 # Nửa đầu MẶC ĐỊNH của mọi abstain không mang `ghi_chu` riêng (Task 14). Trước
 # bản này chỗ này gọi `_da_biet` (đã gỡ), liệt kê tên các văn bản khớp TỪ NGỮ
